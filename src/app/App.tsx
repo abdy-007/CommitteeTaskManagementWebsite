@@ -72,7 +72,7 @@ const initialCategories: Category[] = [
   { id: "c5", name: "Digital",       color: "#2563EB", allowPictures: true,  pictureRequired: false  },
 ];
 
-const members: Member[] = [
+const initialMembers: Member[] = [
   { id: "m1", name: "Ayşe Kaya",        role: "Secretary",   avatar: "AK" },
   { id: "m2", name: "Burak Demir",      role: "Treasurer",   avatar: "BD" },
   { id: "m3", name: "Ceren Yıldız",     role: "Vice Chair",  avatar: "CY" },
@@ -220,7 +220,7 @@ function TaskDetailModal({ task, members, categories, onClose }: {
         {task.pictureUrl && (
           <div className="border-t border-border pt-4">
             <h3 className="font-semibold mb-2">Submission Photo</h3>
-            <img src={task.pictureUrl} alt="Task submission" className="w-full rounded-lg" />
+            <img src={task.pictureUrl} alt="Task submission" className="w-full rounded-lg" />members_
           </div>
         )}
       </div>
@@ -723,7 +723,7 @@ function AddTaskModal({ categories, members, onClose }: {
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [categories, setCategories] = useState<Category[]>(initialCategories);
-  const [members, setMembers] = useState<Member[]>(members);
+  const [members, setMembers] = useState<Member[]>(initialMembers);
   const [view, setView] = useState<"overview" | "tasks" | "members" | "categories">("overview");
   const [filterType, setFilterType] = useState<"all" | "completed" | "pending" | "overdue">("all");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
