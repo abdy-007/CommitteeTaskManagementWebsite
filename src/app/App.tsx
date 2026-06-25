@@ -23,7 +23,7 @@ import {
   Camera,
 } from "lucide-react";
 
-// 🎨 🎨 🎨  Types 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨
+//     Types                                     
 
 type TaskStatus = "completed" | "pending" | "overdue";
 type TaskType = "regular" | "extra";
@@ -57,7 +57,7 @@ interface Task {
   pictureUrl?: string;
 }
 
-// 🎨 🎨 🎨  Initial Data 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨
+//     Initial Data                                     
 
 const CATEGORY_COLORS = [
   "#1B2A3B", "#C9581A", "#4A7C59", "#6B4E8A", "#8B5A2B",
@@ -94,7 +94,7 @@ const initialTasks: Task[] = [
   { id: "t10", title: "Community Partnership Outreach",          memberId: "m5", categoryId: "c4", type: "extra",   status: "pending",   submittedAt: "",         dueDate: "2026-07-05", points: 16, description: "Identify and contact 10+ potential community partners for collaborative initiatives. Prepare partnership proposal outlining mutual benefits and proposed partnership structure." },
 ];
 
-// 🎨 🎨 🎨  Helper Functions 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨
+//     Helper Functions                                     
 
 const getMember   = (id: string, list: Member[])     => list.find((m) => m.id === id)!;
 const getCategory = (id: string, cats: Category[])   => cats.find((c) => c.id === id);
@@ -103,7 +103,7 @@ function uid() {
   return "c" + Math.random().toString(36).slice(2, 9);
 }
 
-// 🎨 🎨 🎨  UI Components 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨
+//     UI Components                                     
 
 function StatCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: boolean }) {
   return (
@@ -158,7 +158,7 @@ function CategoryPill({ category }: { category: Category | undefined }) {
   );
 }
 
-// 🎨 🎨 🎨  Task Detail Modal 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨
+//     Task Detail Modal                                     
 
 function TaskDetailModal({ task, members, categories, onClose }: {
   task: Task | null;
@@ -228,7 +228,7 @@ function TaskDetailModal({ task, members, categories, onClose }: {
   );
 }
 
-// 🎨 🎨 🎨  Categories View 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨
+//     Categories View                                     
 
 function CategoriesView({ categories, setCategories, tasks }: {
   categories: Category[];
@@ -354,7 +354,7 @@ function Toggle({ value, onChange, accentColor }: { value: boolean; onChange: ()
   );
 }
 
-// 🎨 🎨 🎨  Overview View 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨
+//     Overview View                                     
 
 function OverviewView({ tasks, members, categories, onTaskClick }: {
   tasks: Task[];
@@ -407,7 +407,7 @@ function OverviewView({ tasks, members, categories, onTaskClick }: {
   );
 }
 
-// 🎨 🎨 🎨  Tasks View 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨
+//     Tasks View                                     
 
 function TasksView({ tasks, members, categories, filterType, onTaskClick }: {
   tasks: Task[];
@@ -460,7 +460,7 @@ function TasksView({ tasks, members, categories, filterType, onTaskClick }: {
   );
 }
 
-// 🎨 🎨 🎨  Members View - ENHANCED WITH CREATE/DELETE 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨
+//     Members View - ENHANCED WITH CREATE/DELETE                               
 
 function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: Member[]; setMembers: React.Dispatch<React.SetStateAction<Member[]>> }) {
   const [showAddModal, setShowAddModal] = useState(false);
@@ -604,7 +604,7 @@ function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: M
   );
 }
 
-// 🎨 🎨 🎨  Add Task Modal 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨
+//     Add Task Modal                                     
 
 function AddTaskModal({ categories, members, onClose }: {
   categories: Category[];
@@ -718,7 +718,7 @@ function AddTaskModal({ categories, members, onClose }: {
   );
 }
 
-// 🎨 🎨 🎨  Main App 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨 🎨
+//     Main App                                     
 
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
