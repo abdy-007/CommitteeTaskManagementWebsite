@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -64,35 +64,13 @@ const CATEGORY_COLORS = [
   "#2563EB", "#DC2626", "#0891B2", "#65A30D", "#D97706",
 ];
 
-const initialCategories: Category[] = [
-  { id: "c1", name: "Finance",       color: "#4A7C59", allowPictures: false, pictureRequired: false },
-  { id: "c2", name: "Documentation", color: "#1B2A3B", allowPictures: false, pictureRequired: false },
-  { id: "c3", name: "Events",        color: "#C9581A", allowPictures: true,  pictureRequired: true   },
-  { id: "c4", name: "Outreach",      color: "#6B4E8A", allowPictures: true,  pictureRequired: false  },
-  { id: "c5", name: "Digital",       color: "#2563EB", allowPictures: true,  pictureRequired: false  },
-];
 
-const initialMembers: Member[] = [
-  { id: "m1", name: "Ayşe Kaya",        role: "Secretary",   avatar: "AK" },
-  { id: "m2", name: "Burak Demir",      role: "Treasurer",   avatar: "BD" },
-  { id: "m3", name: "Ceren Yıldız",     role: "Vice Chair",  avatar: "CY" },
-  { id: "m4", name: "Deniz Arslan",     role: "Member",      avatar: "DA" },
-  { id: "m5", name: "Emre Şahin",       role: "Member",      avatar: "ES" },
-  { id: "m6", name: "Fatma Çelik",      role: "Member",      avatar: "FC" },
-];
-
-const initialTasks: Task[] = [
-  { id: "t1",  title: "Draft Q3 Budget Proposal",               memberId: "m2", categoryId: "c1", type: "regular", status: "completed", submittedAt: "2026-06-22", dueDate: "2026-06-23", points: 10, description: "Prepare the quarterly budget allocation report. This includes reviewing all department requests, cross-referencing with last year's actuals, and presenting a balanced projection for Q3." },
-  { id: "t2",  title: "Meeting Minutes – June Session",         memberId: "m1", categoryId: "c2", type: "regular", status: "completed", submittedAt: "2026-06-20", dueDate: "2026-06-21", points: 8,  description: "Transcribe and distribute the June committee meeting minutes. Must capture all motions, votes, and action items accurately and distribute within 24 hours of the meeting." },
-  { id: "t3",  title: "Volunteer Coordination Report",          memberId: "m4", categoryId: "c3", type: "extra",   status: "completed", submittedAt: "2026-06-23", dueDate: "2026-06-25", points: 15, description: "Coordinated 12 volunteers for the annual fundraiser event. Includes shift scheduling, briefing materials, and a post-event debrief summary with photos from the event floor.", pictureUrl: "https://images.unsplash.com/photo-1511795759370-ef04db6c3c69?w=800&h=500&fit=crop&auto=format" },
-  { id: "t4",  title: "Newsletter – Summer Edition",             memberId: "m3", categoryId: "c4", type: "regular", status: "pending",   submittedAt: "",         dueDate: "2026-06-28", points: 12, description: "Write and design the summer newsletter for distribution to 400+ subscribers. Content includes: chair's letter, upcoming events, member spotlight, and community news roundup." },
-  { id: "t5",  title: "Sponsor Outreach Deck",                  memberId: "m5", categoryId: "c4", type: "extra",   status: "pending",   submittedAt: "",         dueDate: "2026-06-30", points: 20, description: "Build a professional pitch deck targeting five potential sponsors identified at the spring gala. Deck should include mission statement, audience demographics, sponsorship tiers, and past event highlights." },
-  { id: "t6",  title: "Annual Event Logistics Plan",             memberId: "m3", categoryId: "c3", type: "regular", status: "completed", submittedAt: "2026-06-18", dueDate: "2026-06-20", points: 10, description: "Full venue and schedule plan for the annual gala including catering coordination, AV setup requirements, parking logistics, and accessibility arrangements.", pictureUrl: "https://images.unsplash.com/photo-1540575467063-178f50002ef1?w=800&h=500&fit=crop&auto=format" },
-  { id: "t7",  title: "Social Media Campaign",                   memberId: "m6", categoryId: "c5", type: "extra",   status: "overdue",   submittedAt: "",         dueDate: "2026-06-15", points: 12, description: "Launch a 2-week awareness campaign on Instagram and LinkedIn. Deliverables: 14 posts, 3 short-form videos, weekly analytics report, and a final performance summary." },
-  { id: "t8",  title: "Member Onboarding Guide",                 memberId: "m1", categoryId: "c2", type: "regular", status: "completed", submittedAt: "2026-06-21", dueDate: "2026-06-24", points: 14, description: "Create comprehensive onboarding documentation for new members including: committee history, member roles, meeting schedule, decision-making process, and key contact information." },
-  { id: "t9",  title: "Quarterly Financial Report",              memberId: "m2", categoryId: "c1", type: "regular", status: "overdue",   submittedAt: "",         dueDate: "2026-06-17", points: 18, description: "Compile Q2 financial statements including income/expense summary, bank reconciliation, variance analysis, and recommendations for Q3 budget adjustments." },
-  { id: "t10", title: "Community Partnership Outreach",          memberId: "m5", categoryId: "c4", type: "extra",   status: "pending",   submittedAt: "",         dueDate: "2026-07-05", points: 16, description: "Identify and contact 10+ potential community partners for collaborative initiatives. Prepare partnership proposal outlining mutual benefits and proposed partnership structure." },
-];
+// Define which roles can see which tabs
+const ROLE_PERMISSIONS: Record<string, string[]> = {
+  "Admin": ["overview", "tasks", "members", "categories"],
+  "Committee": ["overview", "tasks", "categories"],
+  "Member": ["overview", "tasks"],
+};
 
 //     Helper Functions                                     
 
@@ -120,6 +98,84 @@ function Avatar({ initials, size = "md" }: { initials: string; size?: "sm" | "md
   return (
     <div className={`${sizeClass} rounded-full bg-accent text-accent-foreground font-semibold flex items-center justify-center flex-shrink-0`}>
       {initials}
+    </div>
+  );
+}
+
+function LoginScreen({ onLogin }: { onLogin: (userId: string) => void }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch("http://localhost:5000/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (response.ok) {
+        const user = await response.json();
+        // Save the user ID to the browser so they stay logged in on refresh
+        localStorage.setItem("committee_user_id", user.id);
+        onLogin(user.id);
+      } else {
+        setError("Invalid username or password");
+      }
+    } catch (err) {
+      setError("Cannot connect to server.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="bg-card border border-border p-8 rounded-lg max-w-md w-full shadow-lg">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-foreground">Committee</h1>
+          <p className="text-sm opacity-60">Please sign in to continue</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="text-sm font-medium">Username</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
+              required
+            />
+          </div>
+          <div>
+            <label className="text-sm font-medium">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
+              required
+            />
+          </div>
+
+          {error && <div className="text-red-500 text-sm text-center font-medium bg-red-100 p-2 rounded">{error}</div>}
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-accent text-accent-foreground py-2 rounded font-bold hover:opacity-90 disabled:opacity-50"
+          >
+            {isLoading ? "Signing in..." : "Sign In"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
@@ -250,7 +306,7 @@ function CategoriesView({ categories, setCategories, tasks }: {
     setCategories((prev) => prev.filter((c) => c.id !== id));
   };
 
-  const addCategory = () => {
+ const addCategory = async () => {
     const newCategory: Category = {
       id: "c" + uid(),
       name: "New Category",
@@ -258,12 +314,40 @@ function CategoriesView({ categories, setCategories, tasks }: {
       allowPictures: false,
       pictureRequired: false,
     };
-    setCategories((prev) => [...prev, newCategory]);
+
+    try {
+      const response = await fetch("http://localhost:5000/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newCategory)
+      });
+      
+      if (response.ok) {
+        setCategories((prev) => [...prev, newCategory]);
+      }
+    } catch (error) {
+      console.error("Failed to save category:", error);
+    }
   };
 
-  const updateName = (id: string, name: string) => {
-    setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)));
-    setEditingId(null);
+  const updateName = async (id: string, name: string) => {
+    try {
+      // 1. Send the updated name to the SQLite database
+      const response = await fetch(`http://localhost:5000/api/categories/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name })
+      });
+
+      if (response.ok) {
+        // 2. If the database saved it successfully, update the UI!
+        setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)));
+        setEditingId(null);
+      }
+    } catch (error) {
+      console.error("Failed to update category name:", error);
+      setEditingId(null); // Close the input box even if it fails
+    }
   };
 
   return (
@@ -477,7 +561,7 @@ function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: M
     return parts.map((p) => p[0]).join("").toUpperCase();
   };
 
-  const addMember = () => {
+  const addMember = async () => {
     if (!newMemberName.trim() || !newMemberRole.trim()) return;
 
     const newMember: Member = {
@@ -487,10 +571,24 @@ function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: M
       avatar: getInitials(newMemberName),
     };
 
-    setMembers((prev) => [...prev, newMember]);
-    setNewMemberName("");
-    setNewMemberRole("");
-    setShowAddModal(false);
+    try {
+      // 1. Send data to SQLite
+      const response = await fetch("http://localhost:5000/api/members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newMember)
+      });
+      
+      if (response.ok) {
+        // 2. Only update UI if the database successfully saved it
+        setMembers((prev) => [...prev, newMember]);
+        setNewMemberName("");
+        setNewMemberRole("");
+        setShowAddModal(false);
+      }
+    } catch (error) {
+      console.error("Failed to save member:", error);
+    }
   };
 
   const deleteMember = (memberId: string) => {
@@ -530,13 +628,13 @@ function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: M
               </div>
               <div>
                 <label className="text-sm font-medium">Role</label>
-                <input
-                  type="text"
+                <select
                   value={newMemberRole}
-                  onChange={(e) => setNewMemberRole(e.target.value)}
-                  placeholder="e.g., Secretary, Member"
-                  className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
-                />
+                  onChange={(e) => setNewMemberRole(e.target.value)}className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground">
+                  <option value="" disabled>Select a role...</option>
+                  <option value="Committee">Committee</option>
+                  <option value="Member">Member</option>
+                </select>
               </div>
             </div>
             <div className="flex gap-2">
@@ -563,7 +661,7 @@ function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: M
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {members.map((member) => (
+        {members.filter(member => member.role !== "Admin").map((member) => (
           <div key={member.id} className="bg-card border border-border rounded-lg p-4">
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-3 flex-1">
@@ -606,23 +704,58 @@ function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: M
 
 //     Add Task Modal                                     
 
-function AddTaskModal({ categories, members, onClose }: {
+function AddTaskModal({ categories, members, onClose, onAdd }: {
   categories: Category[];
   members: Member[];
   onClose: () => void;
+  onAdd: (task: Task) => void;
 }) {
+  // 1. Create a safe list of people who can actually receive tasks
+  const assignableMembers = members.filter(m => m.role !== "Admin");
+
   const [formData, setFormData] = useState({
     title: "",
-    memberId: members[0]?.id || "",
+    // 2. Default to the first assignable person, not the Admin
+    memberId: assignableMembers.length > 0 ? assignableMembers[0].id : "",
     categoryId: categories[0]?.id || "",
     type: "regular" as TaskType,
     points: 10,
     description: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onClose();
+    
+    // Create today's date formatted as YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0];
+
+    const newTask: Task = {
+      id: "t" + uid(),
+      title: formData.title,
+      memberId: formData.memberId,
+      categoryId: formData.categoryId,
+      type: formData.type,
+      status: "pending",
+      submittedAt: "",
+      dueDate: today, // Provide a default due date
+      points: formData.points,
+      description: formData.description,
+    };
+
+    try {
+      const response = await fetch("http://localhost:5000/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newTask)
+      });
+
+      if (response.ok) {
+        onAdd(newTask); // Tell the main App to update the UI
+        onClose();
+      }
+    } catch (error) {
+      console.error("Failed to save task:", error);
+    }
   };
 
   return (
@@ -648,9 +781,9 @@ function AddTaskModal({ categories, members, onClose }: {
               onChange={(e) => setFormData({ ...formData, memberId: e.target.value })}
               className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
             >
-              {members.map((m) => (
+              {assignableMembers.map((m) => (
                 <option key={m.id} value={m.id}>
-                  {m.name}
+                  {m.name} ({m.role})
                 </option>
               ))}
             </select>
@@ -721,21 +854,62 @@ function AddTaskModal({ categories, members, onClose }: {
 //     Main App                                     
 
 export default function App() {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [categories, setCategories] = useState<Category[]>(initialCategories);
-  const [members, setMembers] = useState<Member[]>(initialMembers);
+// 1. Start with completely empty arrays
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  
+  // 2. Add our new loading and user states
+  const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(localStorage.getItem("committee_user_id"));
+  
+  // 3. Keep the UI states exactly the same
   const [view, setView] = useState<"overview" | "tasks" | "members" | "categories">("overview");
   const [filterType, setFilterType] = useState<"all" | "completed" | "pending" | "overdue">("all");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
 
+// 4. FETCH THE DATA
+  useEffect(() => {
+    Promise.all([
+      fetch("http://localhost:5000/api/members").then(res => res.json()),
+      fetch("http://localhost:5000/api/tasks").then(res => res.json()),
+      fetch("http://localhost:5000/api/categories").then(res => res.json())
+    ]).then(([membersData, tasksData, categoriesData]) => {
+      setMembers(membersData);
+      setTasks(tasksData);
+      setCategories(categoriesData);
+      setLoading(false); // Tell React the data is ready!
+    }).catch(err => {
+      console.error("Failed to fetch data:", err);
+      setLoading(false);
+    });
+  }, []);
+
+  // 5. If no user is logged in, STOP HERE and show the Login Screen
+  if (!currentUserId) {
+    return <LoginScreen onLogin={(id) => setCurrentUserId(id)} />;
+  }
+
+  // 6. SAFE Role Checking (Wait until data exists)
+  const currentUser = members.find(m => m.id === currentUserId) || null;
+  const allowedTabs = currentUser ? ROLE_PERMISSIONS[currentUser.role] || [] : [];
+
+  // 7. Block the UI from rendering until loading is done
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background text-foreground text-xl font-bold">
+        Connecting to SQLite Database...
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="flex h-screen overflow-hidden">
         {/* Sidebar */}
         <div className="w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border overflow-y-auto">
           <div className="p-6 border-b border-sidebar-border">
-            <h1 className="text-2xl font-bold text-sidebar-primary">Committee</h1>
+            <h1 className="text-2xl font-bold text-sidebar-primary">Dormitory</h1>
             <p className="text-xs opacity-60">Task Management</p>
           </div>
 
@@ -745,21 +919,24 @@ export default function App() {
               { id: "tasks", label: "Tasks", icon: ClipboardList },
               { id: "members", label: "Members", icon: Users },
               { id: "categories", label: "Categories", icon: Tag },
-            ].map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                onClick={() => setView(id as typeof view)}
-                className={`w-full flex items-center gap-3 px-4 py-2 rounded text-left ${
-                  view === id
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
-                    : "hover:bg-sidebar-accent text-sidebar-foreground"
-                }`}
-              >
-                <Icon size={18} />
-                {label}
-              </button>
-            ))}
-          </nav>
+            ]
+    // ONLY render tabs that the current user's role is allowed to see
+        .filter(tab => allowedTabs.includes(tab.id))
+        .map(({ id, label, icon: Icon }) => (
+    <button
+      key={id}
+      onClick={() => setView(id as typeof view)}
+      className={`w-full flex items-center gap-3 px-4 py-2 rounded text-left ${
+        view === id
+          ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
+          : "hover:bg-sidebar-accent text-sidebar-foreground"
+      }`}
+    >
+      <Icon size={18} />
+      {label}
+    </button>
+  ))}
+</nav>
         </div>
 
         {/* Main Content */}
@@ -809,7 +986,14 @@ export default function App() {
       </div>
 
       {selectedTask && <TaskDetailModal task={selectedTask} members={members} categories={categories} onClose={() => setSelectedTask(null)} />}
-      {showAddTaskModal && <AddTaskModal categories={categories} members={members} onClose={() => setShowAddTaskModal(false)} />}
+      {showAddTaskModal && (
+        <AddTaskModal 
+          categories={categories} 
+          members={members} 
+          onClose={() => setShowAddTaskModal(false)} 
+          onAdd={(newTask) => setTasks(prev => [...prev, newTask])} // <-- Add this line
+        />
+      )}
     </div>
   );
 }

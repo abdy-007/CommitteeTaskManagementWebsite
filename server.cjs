@@ -1,0 +1,178 @@
+const express = require('express');
+const cors = require('cors');
+const sqlite3 = require('sqlite3'); //database
+const { open } = require('sqlite'); //database requirements
+const bcrypt = require('bcrypt'); //security for login
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+let db;
+
+// Initialize the SQLite Database Connection
+(async () => {
+  db = await open({
+    filename: './main.db',
+    driver: sqlite3.Database
+  });
+  
+  // SQLite requires explicitly enabling foreign keys per connection
+  await db.exec('PRAGMA foreign_keys = ON;');
+  console.log('Connected to SQLite main.db');
+})();
+
+// GET all members
+app.get('/api/members', async (req, res) => {
+  try {
+    const members = await db.all('SELECT * FROM members');
+    res.json(members);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// GET all tasks (Updated to map snake_case DB to camelCase React)
+app.get('/api/tasks', async (req, res) => {
+  try {
+    const tasks = await db.all('SELECT * FROM tasks ORDER BY due_date ASC');
+    const formattedTasks = tasks.map(t => ({
+      id: t.id,
+      title: t.title,
+      memberId: t.member_id,
+      categoryId: t.category_id,
+      type: t.type,
+      status: t.status,
+      submittedAt: t.submitted_at,
+      dueDate: t.due_date,
+      points: t.points,
+      description: t.description,
+      pictureUrl: t.picture_url
+    }));
+    res.json(formattedTasks);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// GET all categories (NEW!)
+app.get('/api/categories', async (req, res) => {
+  try {
+    const categories = await db.all('SELECT * FROM categories');
+    const formattedCategories = categories.map(c => ({
+      id: c.id,
+      name: c.name,
+      color: c.color,
+      // SQLite stores booleans as 0 or 1, React needs true or false
+      allowPictures: c.allow_pictures === 1,
+      pictureRequired: c.picture_required === 1
+    }));
+    res.json(formattedCategories);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// ADD a new member
+app.post('/api/members', async (req, res) => {
+  try {
+    const { id, name, role, avatar } = req.body;
+    const newMember = await db.get(
+      'INSERT INTO members (id, name, role, avatar) VALUES (?, ?, ?, ?) RETURNING *',
+      [id, name, role, avatar]
+    );
+    res.json(newMember);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+// ADD a new category
+app.post('/api/categories', async (req, res) => {
+  try {
+    const { id, name, color, allowPictures, pictureRequired } = req.body;
+    
+    // SQLite uses 1 and 0 for true/false
+    const newCat = await db.get(
+      'INSERT INTO categories (id, name, color, allow_pictures, picture_required) VALUES (?, ?, ?, ?, ?) RETURNING *',
+      [id, name, color, allowPictures ? 1 : 0, pictureRequired ? 1 : 0]
+    );
+    
+    res.json(newCat);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// UPDATE a category's name
+app.put('/api/categories/:id', async (req, res) => {
+  try {
+    const { name } = req.body;
+    const { id } = req.params;
+    
+    const updatedCat = await db.get(
+      'UPDATE categories SET name = ? WHERE id = ? RETURNING *',
+      [name, id]
+    );
+    
+    res.json(updatedCat);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// ADD a new task
+app.post('/api/tasks', async (req, res) => {
+  try {
+    const { id, title, memberId, categoryId, type, status, submittedAt, dueDate, points, description, pictureUrl } = req.body;
+    const newTask = await db.get(
+      'INSERT INTO tasks (id, title, member_id, category_id, type, status, submitted_at, due_date, points, description, picture_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *',
+      [id, title, memberId, categoryId, type, status, submittedAt || null, dueDate, points, description, pictureUrl || null]
+    );
+    res.json(newTask);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// POST: User Login
+app.post('/api/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    // 1. Find the user by username
+    const user = await db.get('SELECT * FROM members WHERE username = ?', [username]);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    // 2. Compare the typed password with the hashed password in the DB
+    const match = await bcrypt.compare(password, user.password);
+    
+    if (!match) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    // 3. Success! Send back the user info (but NEVER send the password back!)
+    const { password: _, ...safeUser } = user;
+    res.json(safeUser);
+    
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+const PORT = 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
