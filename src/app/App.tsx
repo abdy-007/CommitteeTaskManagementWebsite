@@ -120,11 +120,12 @@ function LoginScreen({ onLogin }: { onLogin: (userId: string) => void }) {
         body: JSON.stringify({ username, password }),
       });
 
-      if (response.ok) {
-        const user = await response.json();
-        // Save the user ID to the browser so they stay logged in on refresh
-        localStorage.setItem("committee_user_id", user.id);
-        onLogin(user.id);
+    if (response.ok) {
+        const data = await response.json();
+        // Save the secure token, not the raw ID
+        localStorage.setItem("committee_token", data.token);
+        // Reload the app to trigger the secure verification flow
+        window.location.reload(); 
       } else {
         setError("Invalid username or password");
       }
@@ -859,9 +860,6 @@ export default function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   
-  // 2. Add our new loading and user states
-  const [loading, setLoading] = useState(true);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(localStorage.getItem("committee_user_id"));
   
   // 3. Keep the UI states exactly the same
   const [view, setView] = useState<"overview" | "tasks" | "members" | "categories">("overview");
@@ -869,6 +867,50 @@ export default function App() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
 
+
+  // Start with a null user and loading true
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem("committee_token");
+    
+    if (!token) {
+      setLoading(false); // No token found, stop loading and show login screen
+      return;
+    }
+
+    // 1. Ask the server if this token is still valid (survived a restart)
+    fetch("http://localhost:5000/api/verify", {
+      headers: { "Authorization": `Bearer ${token}` }
+    })
+    .then(res => {
+      if (!res.ok) throw new Error("Token invalid or expired");
+      return res.json();
+    })
+    .then(data => {
+      setCurrentUserId(data.userId); // Authentication Passed!
+      
+      // 2. ONLY fetch the sensitive dashboard data if auth was successful
+      return Promise.all([
+        fetch("http://localhost:5000/api/members").then(r => r.json()),
+        fetch("http://localhost:5000/api/tasks").then(r => r.json()),
+        fetch("http://localhost:5000/api/categories").then(r => r.json())
+      ]);
+    })
+    .then(([membersData, tasksData, categoriesData]) => {
+      setMembers(membersData);
+      setTasks(tasksData);
+      setCategories(categoriesData);
+      setLoading(false); // Unlock the dashboard
+    })
+    .catch(err => {
+      console.error("Session terminated:", err);
+      localStorage.removeItem("committee_token"); // Wipe the dead token
+      setCurrentUserId(null);
+      setLoading(false); // Show login screen
+    });
+  }, []);
 // 4. FETCH THE DATA
   useEffect(() => {
     Promise.all([

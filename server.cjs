@@ -3,6 +3,11 @@ const cors = require('cors');
 const sqlite3 = require('sqlite3'); //database
 const { open } = require('sqlite'); //database requirements
 const bcrypt = require('bcrypt'); //security for login
+const jwt = require('jsonwebtoken'); // NEW
+const crypto = require('crypto');    // NEW (Built into Node.js)
+
+// Generate a random secret key on every server restart!
+const SECRET_KEY = crypto.randomBytes(64).toString('hex');
 
 const app = express();
 app.use(cors());
@@ -162,13 +167,33 @@ app.post('/api/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
-    // 3. Success! Send back the user info (but NEVER send the password back!)
+// 3. Success! Generate a JWT and send it back
     const { password: _, ...safeUser } = user;
-    res.json(safeUser);
+    
+    const token = jwt.sign({ id: user.id, role: user.role }, SECRET_KEY, { 
+      expiresIn: '24h' // Token expires naturally in 24 hours
+    });
+    
+    res.json({ token, user: safeUser });
     
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
+  }
+});
+
+// GET: Verify Session Token
+app.get('/api/verify', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'No token' });
+  
+  const token = authHeader.split(' ')[1]; // Extract token after "Bearer "
+  
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY); // Will fail if server restarted!
+    res.json({ valid: true, userId: decoded.id });
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid or expired token' });
   }
 });
 
