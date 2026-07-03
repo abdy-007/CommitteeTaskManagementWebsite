@@ -85,7 +85,7 @@ app.post('/api/members', async (req, res) => {
   try {
     const { id, name, role, avatar, username, password } = req.body;
     
-    // Hash the password securely using bcrypt
+    // Hash the password for security before saving it
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
@@ -203,6 +203,30 @@ app.get('/api/verify', (req, res) => {
     res.json({ valid: true, userId: decoded.id });
   } catch (err) {
     res.status(401).json({ error: 'Invalid or expired token' });
+  }
+});
+
+// DELETE a member
+app.delete('/api/members/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.run('DELETE FROM members WHERE id = ?', [id]);
+    res.json({ message: 'Member deleted successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// DELETE a task
+app.delete('/api/tasks/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.run('DELETE FROM tasks WHERE id = ?', [id]);
+    res.json({ message: 'Task deleted successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
   }
 });
 

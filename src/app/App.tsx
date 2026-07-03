@@ -21,6 +21,7 @@ import {
   X,
   ChevronRight,
   Camera,
+  LogOut
 } from "lucide-react";
 
 //     Types                                     
@@ -201,11 +202,12 @@ function CategoryPill({ category }: { category: Category | undefined }) {
 
 //     Task Detail Modal                                     
 
-function TaskDetailModal({ task, members, categories, onClose }: {
+function TaskDetailModal({ task, members, categories, onClose, onDelete }: {
   task: Task | null;
   members: Member[];
   categories: Category[];
   onClose: () => void;
+  onDelete: (id: string) => void;
 }) {
   if (!task) return null;
   const member = getMember(task.memberId, members);
@@ -246,12 +248,22 @@ function TaskDetailModal({ task, members, categories, onClose }: {
           <p className="text-sm opacity-75 leading-relaxed">{task.description}</p>
         </div>
 
-        {task.pictureUrl && (
-          <div className="border-t border-border pt-4">
-            <h3 className="font-semibold mb-2">Submission Photo</h3>
-            <img src={task.pictureUrl} alt="Task submission" className="w-full rounded-lg" />members_
-          </div>
-        )}
+{task.pictureUrl && (
+    <div className="border-t border-border pt-4 mb-4">
+      <h3 className="font-semibold mb-2">Submission Photo</h3>
+      <img src={task.pictureUrl} alt="Task submission" className="w-full rounded-lg" />
+    </div>
+  )}
+
+  {/* ADD THIS NEW BLOCK FOR THE DELETE BUTTON */}
+  <div className="flex justify-end border-t border-border pt-4 mt-4">
+    <button 
+      onClick={() => onDelete(task.id)} 
+      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2 font-semibold transition-colors"
+    >
+      <Trash2 size={16} /> Delete Task
+    </button>
+  </div>
       </div>
     </div>
   );
@@ -514,12 +526,13 @@ function TasksView({ tasks, members, categories, onTaskClick }: {
 
 //     Members View - ENHANCED WITH CREATE/DELETE                               
 
+// Inside the MembersView function (around line 249):
 function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: Member[]; setMembers: React.Dispatch<React.SetStateAction<Member[]>> }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberRole, setNewMemberRole] = useState("");
   const [newMemberUsername, setNewMemberUsername] = useState("");
-  const [newMemberPassword, setNewMemberPassword] = useState(""); 
+  const [newMemberPassword, setNewMemberPassword] = useState("");
 
   const getTaskCount = (memberId: string) => tasks.filter((t) => t.memberId === memberId).length;
   const getCompletedCount = (memberId: string) => tasks.filter((t) => t.memberId === memberId).length;
@@ -531,29 +544,42 @@ function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: M
     return parts.map((p) => p[0]).join("").toUpperCase();
   };
 
+// Inside the addMember function (around line 259):
   const addMember = async () => {
-    if (!newMemberName.trim() || !newMemberRole.trim()) return;
+    // Require the new fields to be filled
+    if (!newMemberName.trim() || !newMemberRole.trim() || !newMemberUsername.trim() || !newMemberPassword.trim()) return;
 
-    const newMember: Member = {
+    const newMemberPayload = {
       id: "m" + uid(),
       name: newMemberName,
       role: newMemberRole,
       avatar: getInitials(newMemberName),
+      username: newMemberUsername, // Send username
+      password: newMemberPassword  // Send password
     };
 
     try {
-      // 1. Send data to SQLite
       const response = await fetch("http://localhost:5000/api/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newMember)
+        body: JSON.stringify(newMemberPayload) // Send the updated payload
       });
       
       if (response.ok) {
-        // 2. Only update UI if the database successfully saved it
+        // Create the local member object without the password for state
+        const newMember: Member = {
+          id: newMemberPayload.id,
+          name: newMemberPayload.name,
+          role: newMemberPayload.role,
+          avatar: newMemberPayload.avatar,
+        };
+        
         setMembers((prev) => [...prev, newMember]);
+        // Reset all fields
         setNewMemberName("");
         setNewMemberRole("");
+        setNewMemberUsername("");
+        setNewMemberPassword("");
         setShowAddModal(false);
       }
     } catch (error) {
@@ -561,13 +587,26 @@ function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: M
     }
   };
 
-  const deleteMember = (memberId: string) => {
-    if (getTaskCount(memberId) > 0) {
-      alert("Cannot delete member with assigned tasks. Please reassign tasks first.");
-      return;
+  
+const deleteMember = async (memberId: string) => {
+  if (getTaskCount(memberId) > 0) {
+    alert("Cannot delete member with assigned tasks. Please reassign tasks first.");
+    return;
+  }
+  
+  try {
+    const response = await fetch(`http://localhost:5000/api/members/${memberId}`, {
+      method: "DELETE"
+    });
+    
+    if (response.ok) {
+      setMembers((prev) => prev.filter((m) => m.id !== memberId));
     }
-    setMembers((prev) => prev.filter((m) => m.id !== memberId));
-  };
+  } catch (error) {
+    console.error("Failed to delete member:", error);
+  }
+};
+
 
   return (
     <div className="space-y-4">
@@ -586,28 +625,54 @@ function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: M
           <div className="bg-card rounded-lg p-6 max-w-sm w-full">
             <h3 className="text-lg font-bold mb-4">Add New Member</h3>
             <div className="space-y-3 mb-4">
-              <div>
-                <label className="text-sm font-medium">Name</label>
-                <input
-                  type="text"
-                  value={newMemberName}
-                  onChange={(e) => setNewMemberName(e.target.value)}
-                  placeholder="Full name"
-                  className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">Role</label>
-                <select
-                  value={newMemberRole}
-                  onChange={(e) => setNewMemberRole(e.target.value)}className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground">
-                  <option value="" disabled>Select a role...</option>
-                  <option value="Committee">Committee</option>
-                  <option value="Member">Member</option>
-                  <option value="Observer">Observer</option>
-                </select>
-              </div>
-            </div>
+  <div>
+    <label className="text-sm font-medium">Name</label>
+    <input
+      type="text"
+      value={newMemberName}
+      onChange={(e) => setNewMemberName(e.target.value)}
+      placeholder="Full name"
+      className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
+    />
+  </div>
+  
+  {/* ADD USERNAME FIELD */}
+  <div>
+    <label className="text-sm font-medium">Username</label>
+    <input
+      type="text"
+      value={newMemberUsername}
+      onChange={(e) => setNewMemberUsername(e.target.value)}
+      placeholder="Login ID"
+      className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
+    />
+  </div>
+
+  {/* ADD PASSWORD FIELD */}
+  <div>
+    <label className="text-sm font-medium">Password</label>
+    <input
+      type="password"
+      value={newMemberPassword}
+      onChange={(e) => setNewMemberPassword(e.target.value)}
+      placeholder="Secret password"
+      className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
+    />
+  </div>
+
+  <div>
+    <label className="text-sm font-medium">Role</label>
+    <select
+      value={newMemberRole}
+      onChange={(e) => setNewMemberRole(e.target.value)}
+      className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground">
+      <option value="" disabled>Select a role...</option>
+      <option value="Committee">Committee</option>
+      <option value="Member">Member</option>
+      <option value="Observer">Observer</option>
+    </select>
+  </div>
+</div>
             <div className="flex gap-2">
               <button
                 onClick={() => {
@@ -895,6 +960,21 @@ export default function App() {
     });
   }, []);
 
+const deleteTask = async (taskId: string) => {
+  try {
+    const response = await fetch(`http://localhost:5000/api/tasks/${taskId}`, {
+      method: "DELETE"
+    });
+    
+    if (response.ok) {
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      setSelectedTask(null); // Close the modal
+    }
+  } catch (error) {
+    console.error("Failed to delete task:", error);
+  }
+};
+
   // 5. If no user is logged in, STOP HERE and show the Login Screen
   if (!currentUserId) {
     return <LoginScreen onLogin={(id) => setCurrentUserId(id)} />;
@@ -916,36 +996,50 @@ export default function App() {
     <div className="min-h-screen bg-background text-foreground">
       <div className="flex h-screen overflow-hidden">
         {/* Sidebar */}
-        <div className="w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border overflow-y-auto">
-          <div className="p-6 border-b border-sidebar-border">
-            <h1 className="text-2xl font-bold text-sidebar-primary">Dormitory</h1>
-            <p className="text-xs opacity-60">Task Management</p>
-          </div>
+        <div className="w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col">
+  <div className="p-6 border-b border-sidebar-border">
+    <h1 className="text-2xl font-bold text-sidebar-primary">Dormitory</h1>
+    <p className="text-xs opacity-60">Task Management</p>
+  </div>
 
-          <nav className="p-4 space-y-2">
-            {[
-              { id: "overview", label: "Overview", icon: LayoutDashboard },
-              { id: "tasks", label: "Tasks", icon: ClipboardList },
-              { id: "members", label: "Members", icon: Users },
-              { id: "categories", label: "Categories", icon: Tag },
-            ]
-    // ONLY render tabs that the current user's role is allowed to see
-        .filter(tab => allowedTabs.includes(tab.id))
-        .map(({ id, label, icon: Icon }) => (
+  {/* Add flex-1 and overflow-y-auto here so the navigation stretches and scrolls if needed */}
+  <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
+    {[
+      { id: "overview", label: "Overview", icon: LayoutDashboard },
+      { id: "tasks", label: "Tasks", icon: ClipboardList },
+      { id: "members", label: "Members", icon: Users },
+      { id: "categories", label: "Categories", icon: Tag },
+    ]
+    .filter(tab => allowedTabs.includes(tab.id))
+    .map(({ id, label, icon: Icon }) => (
+      <button
+        key={id}
+        onClick={() => setView(id as typeof view)}
+        className={`w-full flex items-center gap-3 px-4 py-2 rounded text-left ${
+          view === id
+            ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
+            : "hover:bg-sidebar-accent text-sidebar-foreground"
+        }`}
+      >
+        <Icon size={18} />
+        {label}
+      </button>
+    ))}
+  </nav>
+
+  {/* ADD THIS NEW LOGOUT SECTION */}
+  <div className="p-4 border-t border-sidebar-border mt-auto">
     <button
-      key={id}
-      onClick={() => setView(id as typeof view)}
-      className={`w-full flex items-center gap-3 px-4 py-2 rounded text-left ${
-        view === id
-          ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
-          : "hover:bg-sidebar-accent text-sidebar-foreground"
-      }`}
+      onClick={() => {
+        localStorage.removeItem("committee_token");
+        window.location.reload();
+      }}
+      className="w-full flex items-center gap-3 px-4 py-2 rounded text-left hover:bg-red-500/10 text-red-500 transition-colors"
     >
-      <Icon size={18} />
-      {label}
+      <LogOut size={18} />
+      <span className="font-semibold">Logout</span>
     </button>
-  ))}
-</nav>
+  </div>
         </div>
 
         {/* Main Content */}
@@ -971,13 +1065,21 @@ export default function App() {
 
           <div className="flex-1 overflow-y-auto px-8 py-6">
             {view === "overview" && <OverviewView tasks={tasks} members={members} categories={categories} onTaskClick={setSelectedTask} />}
-{view === "tasks" && <TasksView tasks={tasks} members={members} categories={categories} onTaskClick={setSelectedTask} />}            {view === "members" && <MembersView tasks={tasks} members={members} setMembers={setMembers} />}
+            {view === "tasks" && <TasksView tasks={tasks} members={members} categories={categories} onTaskClick={setSelectedTask} />}            {view === "members" && <MembersView tasks={tasks} members={members} setMembers={setMembers} />}
             {view === "categories" && <CategoriesView categories={categories} setCategories={setCategories} tasks={tasks} />}
           </div>
         </div>
       </div>
 
-      {selectedTask && <TaskDetailModal task={selectedTask} members={members} categories={categories} onClose={() => setSelectedTask(null)} />}
+      {selectedTask && (
+  <TaskDetailModal 
+    task={selectedTask} 
+    members={members} 
+    categories={categories} 
+    onClose={() => setSelectedTask(null)} 
+    onDelete={deleteTask} // <-- ADD THIS LINE
+  />
+)}
       {showAddTaskModal && (
         <AddTaskModal 
           categories={categories} 
