@@ -5,6 +5,9 @@ const { open } = require('sqlite'); //database requirements
 const bcrypt = require('bcrypt'); //security for login
 const jwt = require('jsonwebtoken'); // NEW
 const crypto = require('crypto');    // NEW (Built into Node.js)
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
 
 // Generate a random secret key on every server restart!
 const SECRET_KEY = crypto.randomBytes(64).toString('hex');
@@ -26,6 +29,43 @@ let db;
   await db.exec('PRAGMA foreign_keys = ON;');
   console.log('Connected to SQLite main.db');
 })();
+
+//-----------------------------------------------------------------------------
+
+// --- NEW UPLOAD CONFIGURATION ---
+// 1. Ensure the pictures directory exists
+const picturesDir = path.join(__dirname, 'pictures');
+if (!fs.existsSync(picturesDir)) {
+  fs.mkdirSync(picturesDir);
+}
+
+// 2. Configure Multer to save files to the pictures folder with unique names
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'pictures/');
+  },
+  filename: function (req, file, cb) {
+    // Generates a unique filename: timestamp-random.extension (e.g., 1689382-1234.jpg)
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage: storage });
+
+// 3. Serve the pictures folder statically so the frontend can load them via URL
+app.use('/pictures', express.static(path.join(__dirname, 'pictures')));
+
+// 4. Create the Upload API Endpoint
+app.post('/api/upload', upload.single('picture'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  // Construct the full URL to the saved image
+  const pictureUrl = `http://localhost:5000/pictures/${req.file.filename}`;
+  res.json({ pictureUrl });
+});
+
+//------------------------------------------------------------------------------
 
 // GET all members
 app.get('/api/members', async (req, res) => {

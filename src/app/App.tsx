@@ -937,30 +937,71 @@ function AddTaskModal({ categories, members, currentUserId, onClose, onAdd }: {
   onClose: () => void;
   onAdd: (task: Task) => void;
 }) {
-  // 1. Create a safe list of people who can actually receive tasks
   const assignableMembers = members.filter(m => m.role !== "Admin");
 
   const [formData, setFormData] = useState({
     title: "",
-    memberId: currentUserId,
     categoryId: categories[0]?.id || "",
     points: 10,
     description: "",
   });
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+  // NEW: State to hold the selected image file
+  const [pictureFile, setPictureFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const newTask: Task = {
-    id: "t" + uid(),
-    title: formData.title,
-    // STRICT OVERRIDE: Assign directly from the prop, guaranteeing it is never empty
-    memberId: currentUserId, 
-    categoryId: formData.categoryId,
-    submittedAt: new Date().toISOString(),
-    points: formData.points,
-    description: formData.description,
-  };
+  // NEW: Dynamically find the active category to check its picture rules
+  const activeCategory = categories.find(c => c.id === formData.categoryId);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // 1. Validation: Block submission if a picture is strictly required but not provided
+    if (activeCategory?.pictureRequired && !pictureFile) {
+      alert(`A picture is explicitly required for the "${activeCategory.name}" category.`);
+      return;
+    }
+
+    setIsUploading(true);
+    let uploadedPictureUrl = "";
+
+    // 2. If a picture was selected, send it to the Multer upload endpoint first
+    if (pictureFile) {
+      const uploadData = new FormData();
+      uploadData.append("picture", pictureFile);
+
+      try {
+        const uploadRes = await fetch("http://localhost:5000/api/upload", {
+          method: "POST",
+          body: uploadData, // Note: DO NOT set "Content-Type" manually when using FormData
+        });
+        
+        if (uploadRes.ok) {
+          const result = await uploadRes.json();
+          uploadedPictureUrl = result.pictureUrl; // Extract the saved URL
+        } else {
+          alert("Image upload failed.");
+          setIsUploading(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Upload connection error:", error);
+        setIsUploading(false);
+        return;
+      }
+    }
+
+    // 3. Create the final Task object, attaching the new picture URL (or null)
+    const newTask: Task = {
+      id: "t" + uid(),
+      title: formData.title,
+      memberId: currentUserId,
+      categoryId: formData.categoryId,
+      submittedAt: new Date().toISOString(),
+      points: formData.points,
+      description: formData.description,
+      pictureUrl: uploadedPictureUrl || undefined, // Send the URL to the SQLite database
+    };
 
     try {
       const response = await fetch("http://localhost:5000/api/tasks", {
@@ -970,11 +1011,13 @@ const handleSubmit = async (e: React.FormEvent) => {
       });
 
       if (response.ok) {
-        onAdd(newTask); // Tell the main App to update the UI
+        onAdd(newTask);
         onClose();
       }
     } catch (error) {
       console.error("Failed to save task:", error);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -991,38 +1034,59 @@ const handleSubmit = async (e: React.FormEvent) => {
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
+              required
             />
           </div>
+          
           <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="text-sm font-medium">Category</label>
               <select
                 value={formData.categoryId}
-                onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, categoryId: e.target.value });
+                  setPictureFile(null); // Reset picture if they change categories
+                }}
                 className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
               >
                 {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
             </div>
           </div>
 
-<div>
-  <label className="text-sm font-medium">Points</label>
-  <input
-    type="number"
-    value={formData.points}
-    onChange={(e) => {
-      const parsed = parseInt(e.target.value, 10);
-      // Fallback to 0 if parsing fails (prevents NaN/500 errors)
-      setFormData({ ...formData, points: isNaN(parsed) ? 0 : parsed });
-    }}
-    className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
-  />
-</div>
+          {/* NEW: Conditional Picture Upload Input */}
+          {activeCategory?.allowPictures && (
+            <div className="bg-muted p-3 rounded-lg border border-border border-dashed">
+              <label className="text-sm font-medium flex items-center gap-2">
+                Task Picture 
+                {activeCategory.pictureRequired ? 
+                  <span className="text-xs text-red-500 font-bold">(Required)</span> : 
+                  <span className="text-xs opacity-60">(Optional)</span>
+                }
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setPictureFile(e.target.files?.[0] || null)}
+                className="w-full mt-2 text-sm text-foreground file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-accent file:text-accent-foreground hover:file:opacity-90"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="text-sm font-medium">Points</label>
+            <input
+              type="number"
+              value={formData.points}
+              onChange={(e) => {
+                const parsed = parseInt(e.target.value, 10);
+                setFormData({ ...formData, points: isNaN(parsed) ? 0 : parsed });
+              }}
+              className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
+            />
+          </div>
 
           <div>
             <label className="text-sm font-medium">Description</label>
@@ -1035,11 +1099,11 @@ const handleSubmit = async (e: React.FormEvent) => {
           </div>
 
           <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="flex-1 px-3 py-2 border border-border rounded hover:bg-muted">
+            <button type="button" onClick={onClose} disabled={isUploading} className="flex-1 px-3 py-2 border border-border rounded hover:bg-muted disabled:opacity-50">
               Cancel
             </button>
-            <button type="submit" className="flex-1 px-3 py-2 bg-accent text-accent-foreground rounded">
-              Create Task
+            <button type="submit" disabled={isUploading} className="flex-1 px-3 py-2 bg-accent text-accent-foreground rounded disabled:opacity-50 flex justify-center items-center">
+              {isUploading ? "Uploading..." : "Create Task"}
             </button>
           </div>
         </form>
