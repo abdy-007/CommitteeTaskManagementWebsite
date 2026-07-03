@@ -16,6 +16,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+app.use(express.static(path.join(__dirname, 'dist')));
+
+
 let db;
 
 // Initialize the SQLite Database Connection
@@ -311,6 +314,10 @@ app.delete('/api/tasks/cleanup', async (req, res) => {
     console.error(err.message);
     res.status(500).send('Server Error');
   }
+});
+
+app.get(/.*/, (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 const PORT = 5000;

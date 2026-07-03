@@ -108,7 +108,7 @@ function LoginScreen({ onLogin }: { onLogin: (userId: string) => void }) {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:5000/api/login", {
+      const response = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -293,7 +293,7 @@ function CategoriesView({ categories, setCategories, tasks }: {
     setCategories((prev) => prev.map((c) => (c.id === updatedCat.id ? updatedCat : c)));
 
     try {
-      await fetch(`http://localhost:5000/api/categories/${updatedCat.id}`, {
+      await fetch(`/api/categories/${updatedCat.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatedCat)
@@ -328,7 +328,7 @@ const deleteCategory = async (id: string) => {
   }
 
   try {
-    const response = await fetch(`http://localhost:5000/api/categories/${id}`, {
+    const response = await fetch(`/api/categories/${id}`, {
       method: "DELETE"
     });
     
@@ -350,7 +350,7 @@ const deleteCategory = async (id: string) => {
     };
 
     try {
-      const response = await fetch("http://localhost:5000/api/categories", {
+      const response = await fetch("/api/categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newCategory)
@@ -367,7 +367,7 @@ const deleteCategory = async (id: string) => {
   // const updateName = async (id: string, name: string) => {
   //   try {
   //     // 1. Send the updated name to the SQLite database
-  //     const response = await fetch(`http://localhost:5000/api/categories/${id}`, {
+  //     const response = await fetch(`/api/categories/${id}`, {
   //       method: "PUT",
   //       headers: { "Content-Type": "application/json" },
   //       body: JSON.stringify({ name })
@@ -749,7 +749,7 @@ function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: M
     };
 
     try {
-      const response = await fetch("http://localhost:5000/api/members", {
+      const response = await fetch("/api/members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newMemberPayload) // Send the updated payload
@@ -785,7 +785,7 @@ const deleteMember = async (memberId: string) => {
   }
   
   try {
-    const response = await fetch(`http://localhost:5000/api/members/${memberId}`, {
+    const response = await fetch(`/api/members/${memberId}`, {
       method: "DELETE"
     });
     
@@ -971,7 +971,7 @@ function AddTaskModal({ categories, members, currentUserId, onClose, onAdd }: {
       uploadData.append("picture", pictureFile);
 
       try {
-        const uploadRes = await fetch("http://localhost:5000/api/upload", {
+        const uploadRes = await fetch("/api/upload", {
           method: "POST",
           body: uploadData, // Note: DO NOT set "Content-Type" manually when using FormData
         });
@@ -1004,7 +1004,7 @@ function AddTaskModal({ categories, members, currentUserId, onClose, onAdd }: {
     };
 
     try {
-      const response = await fetch("http://localhost:5000/api/tasks", {
+      const response = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newTask)
@@ -1140,7 +1140,7 @@ export default function App() {
     }
 
     // 1. Ask the server if this token is still valid (survived a restart)
-    fetch("http://localhost:5000/api/verify", {
+    fetch("/api/verify", {
       headers: { "Authorization": `Bearer ${token}` }
     })
     .then(res => {
@@ -1152,9 +1152,9 @@ export default function App() {
       
       // 2. ONLY fetch the sensitive dashboard data if auth was successful
       return Promise.all([
-        fetch("http://localhost:5000/api/members").then(r => r.json()),
-        fetch("http://localhost:5000/api/tasks").then(r => r.json()),
-        fetch("http://localhost:5000/api/categories").then(r => r.json())
+        fetch("/api/members").then(r => r.json()),
+        fetch("/api/tasks").then(r => r.json()),
+        fetch("/api/categories").then(r => r.json())
       ]);
     })
     .then(([membersData, tasksData, categoriesData]) => {
@@ -1173,9 +1173,9 @@ export default function App() {
 // 4. FETCH THE DATA
   useEffect(() => {
     Promise.all([
-      fetch("http://localhost:5000/api/members").then(res => res.json()),
-      fetch("http://localhost:5000/api/tasks").then(res => res.json()),
-      fetch("http://localhost:5000/api/categories").then(res => res.json())
+      fetch("/api/members").then(res => res.json()),
+      fetch("/api/tasks").then(res => res.json()),
+      fetch("/api/categories").then(res => res.json())
     ]).then(([membersData, tasksData, categoriesData]) => {
       setMembers(membersData);
       setTasks(tasksData);
@@ -1189,7 +1189,7 @@ export default function App() {
 
 const deleteTask = async (taskId: string) => {
   try {
-    const response = await fetch(`http://localhost:5000/api/tasks/${taskId}`, {
+    const response = await fetch(`/api/tasks/${taskId}`, {
       method: "DELETE"
     });
     
@@ -1218,7 +1218,7 @@ const pruneOldTasks = async () => {
   if (!confirmPrune) return;
 
   try {
-    const response = await fetch("http://localhost:5000/api/tasks/cleanup", {
+    const response = await fetch("/api/tasks/cleanup", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cutoffDate })
@@ -1254,7 +1254,7 @@ const pruneOldTasks = async () => {
     <div className="min-h-screen bg-background text-foreground">
       <div className="flex h-screen overflow-hidden">
         {/* Sidebar */}
-        <div className="w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col">
+        <div className="w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col shrink-0">
   <div className="p-6 border-b border-sidebar-border">
     <h1 className="text-2xl font-bold text-sidebar-primary">Dormitory</h1>
     <p className="text-xs opacity-60">Task Management</p>
@@ -1302,8 +1302,7 @@ const pruneOldTasks = async () => {
 
         {/* Main Content */}
         <div className="flex-1 overflow-hidden flex flex-col">
-          <div className="bg-card border-b border-border px-8 py-4 flex items-center justify-between">
-            <h1 className="text-3xl font-bold">
+        <div className="bg-card border-b border-border px-4 md:px-8 py-4 flex items-center justify-between">            <h1 className="text-3xl font-bold">
               {view === "overview" && "Overview"}
               {view === "tasks" && "Tasks"}
               {view === "members" && "Members"}
@@ -1332,7 +1331,7 @@ const pruneOldTasks = async () => {
 
 
 
-          <div className="flex-1 overflow-y-auto px-8 py-6">
+            <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6">
             {view === "overview" && <OverviewView tasks={tasks} members={members} categories={categories} onTaskClick={setSelectedTask} />}
             {view === "tasks" && <TasksView tasks={tasks} members={members} categories={categories} onTaskClick={setSelectedTask} />} 
             {view === "members" && <MembersView tasks={tasks} members={members} setMembers={setMembers} />}
