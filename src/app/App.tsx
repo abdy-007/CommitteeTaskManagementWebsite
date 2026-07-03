@@ -279,10 +279,46 @@ function CategoriesView({ categories, setCategories, tasks }: {
 
   const getTaskCount = (categoryId: string) => tasks.filter((t) => t.categoryId === categoryId).length;
 
-  const toggle = (id: string, field: "allowPictures" | "pictureRequired") => {
-    setCategories((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, [field]: !c[field] } : c))
-    );
+  // const toggle = (id: string, field: "allowPictures" | "pictureRequired") => {
+  //   setCategories((prev) =>
+  //     prev.map((c) => (c.id === id ? { ...c, [field]: !c[field] } : c))
+  //   );
+  // };
+
+// Inside CategoriesView (around line 220), REPLACE your existing `toggle` and `updateName` functions with this block:
+
+  // Centralized function to push any category update to the backend
+  const updateCategory = async (updatedCat: Category) => {
+    // Optimistic UI update (feels instantaneous to the user)
+    setCategories((prev) => prev.map((c) => (c.id === updatedCat.id ? updatedCat : c)));
+
+    try {
+      await fetch(`http://localhost:5000/api/categories/${updatedCat.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedCat)
+      });
+    } catch (error) {
+      console.error("Failed to save category update:", error);
+    }
+  };
+
+  // Helper for checkboxes
+  const toggle = (cat: Category, field: "allowPictures" | "pictureRequired") => {
+    updateCategory({ ...cat, [field]: !cat[field] });
+  };
+
+  // Helper for color cycling
+  const cycleColor = (cat: Category) => {
+    const currentIndex = CATEGORY_COLORS.indexOf(cat.color);
+    const nextIndex = currentIndex !== -1 ? (currentIndex + 1) % CATEGORY_COLORS.length : 0;
+    updateCategory({ ...cat, color: CATEGORY_COLORS[nextIndex] });
+  };
+
+  // Helper for renaming
+  const saveName = (cat: Category, newName: string) => {
+    updateCategory({ ...cat, name: newName });
+    setEditingId(null);
   };
 
 const deleteCategory = async (id: string) => {
@@ -328,25 +364,25 @@ const deleteCategory = async (id: string) => {
     }
   };
 
-  const updateName = async (id: string, name: string) => {
-    try {
-      // 1. Send the updated name to the SQLite database
-      const response = await fetch(`http://localhost:5000/api/categories/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name })
-      });
+  // const updateName = async (id: string, name: string) => {
+  //   try {
+  //     // 1. Send the updated name to the SQLite database
+  //     const response = await fetch(`http://localhost:5000/api/categories/${id}`, {
+  //       method: "PUT",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ name })
+  //     });
 
-      if (response.ok) {
-        // 2. If the database saved it successfully, update the UI!
-        setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)));
-        setEditingId(null);
-      }
-    } catch (error) {
-      console.error("Failed to update category name:", error);
-      setEditingId(null); // Close the input box even if it fails
-    }
-  };
+  //     if (response.ok) {
+  //       // 2. If the database saved it successfully, update the UI!
+  //       setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)));
+  //       setEditingId(null);
+  //     }
+  //   } catch (error) {
+  //     console.error("Failed to update category name:", error);
+  //     setEditingId(null); // Close the input box even if it fails
+  //   }
+  // };
 
   return (
     <div className="space-y-4">
@@ -361,17 +397,22 @@ const deleteCategory = async (id: string) => {
         <div key={cat.id} className="bg-card border border-border rounded-lg p-4">
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-3 flex-1">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: cat.color }} />
+              <div 
+                className="w-4 h-4 rounded cursor-pointer ring-offset-background hover:ring-2 ring-border transition-all" 
+                style={{ backgroundColor: cat.color }} 
+                onClick={() => cycleColor(cat)}
+                title="Click to change color"
+                />
               {editingId === cat.id ? (
                 <input
                   autoFocus
                   value={editingName}
                   onChange={(e) => setEditingName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && updateName(cat.id, editingName)}
-                  onBlur={() => updateName(cat.id, editingName)}
+                  onKeyDown={(e) => e.key === "Enter" && saveName(cat, editingName)}
+                  onBlur={() => saveName(cat, editingName)}
                   className="flex-1 px-2 py-1 border border-border rounded bg-input text-foreground"
-                />
-              ) : (
+                  />
+                ) : (
                 <div
                   onClick={() => {
                     setEditingId(cat.id);
@@ -396,16 +437,16 @@ const deleteCategory = async (id: string) => {
               <input
                 type="checkbox"
                 checked={cat.allowPictures}
-                onChange={() => toggle(cat.id, "allowPictures")}
+                onChange={() => toggle(cat, "allowPictures")}
                 className="rounded"
-              />
+                />
               Allow pictures
             </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={cat.pictureRequired}
-                onChange={() => toggle(cat.id, "pictureRequired")}
+                onChange={() => toggle(cat, "pictureRequired")}
                 disabled={!cat.allowPictures}
                 className="rounded disabled:opacity-50"
               />
@@ -1215,7 +1256,7 @@ const pruneOldTasks = async () => {
       </button>
     )}
   </div>
-            {view === "tasks" && (currentUser?.role === "Member" || currentUser?.role === "Admin") && (
+            {view === "tasks" && currentUser?.role === "Member" && (
               <button
                 onClick={() => setShowAddTaskModal(true)}
                 className="bg-accent text-accent-foreground px-4 py-2 rounded font-semibold flex items-center gap-2"

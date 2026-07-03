@@ -119,15 +119,16 @@ app.post('/api/categories', async (req, res) => {
   }
 });
 
-// UPDATE a category's name
+
 app.put('/api/categories/:id', async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, color, allowPictures, pictureRequired } = req.body;
     const { id } = req.params;
     
+    // Update all fields, translating React booleans back into SQLite 1s and 0s
     const updatedCat = await db.get(
-      'UPDATE categories SET name = ? WHERE id = ? RETURNING *',
-      [name, id]
+      'UPDATE categories SET name = ?, color = ?, allow_pictures = ?, picture_required = ? WHERE id = ? RETURNING *',
+      [name, color, allowPictures ? 1 : 0, pictureRequired ? 1 : 0, id]
     );
     
     res.json(updatedCat);
