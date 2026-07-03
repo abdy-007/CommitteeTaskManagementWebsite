@@ -50,8 +50,7 @@ interface Task {
   description: string;
   pictureUrl?: string;
 }
-
-//     Initial Data                                     
+                                   
 
 const CATEGORY_COLORS = [
   "#1B2A3B", "#C9581A", "#4A7C59", "#6B4E8A", "#8B5A2B",
@@ -62,7 +61,7 @@ const CATEGORY_COLORS = [
 // Define which roles can see which tabs
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   "Admin": ["overview", "tasks", "members", "categories"],
-  "Committee": ["overview", "tasks", "categories"],
+  "Committee": ["overview", "tasks", "members", "categories"],
   "Member": ["overview", "tasks"],
   "Observer": ["overview", "tasks"],
 };
@@ -502,59 +501,108 @@ function TasksView({ tasks, members, categories, onTaskClick }: {
   categories: Category[];
   onTaskClick: (task: Task) => void;
 }) {
-  // We removed the 'filtered' variable entirely. Map directly over 'tasks'.
+  const [selectedMonth, setSelectedMonth] = useState("All");
+  const [selectedMember, setSelectedMember] = useState("All");
+
+  // Dynamically extract unique "Month Year" combinations from existing tasks
+  const uniqueMonths = Array.from(new Set(tasks.map(t => {
+    if (!t.submittedAt) return null;
+    const d = new Date(t.submittedAt);
+    return isNaN(d.getTime()) ? null : d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }).filter(Boolean))) as string[];
+
+  // Apply filters to the task list
+  const filteredTasks = tasks.filter(t => {
+    const matchMember = selectedMember === "All" || t.memberId === selectedMember;
+    let matchMonth = true;
+    
+    if (selectedMonth !== "All") {
+       if (!t.submittedAt) { 
+         matchMonth = false; 
+       } else {
+         const d = new Date(t.submittedAt);
+         const mStr = isNaN(d.getTime()) ? "" : d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+         matchMonth = mStr === selectedMonth;
+       }
+    }
+    return matchMember && matchMonth;
+  });
+
   return (
-    <div className="space-y-3">
-{tasks.map((task) => {
-  const member = getMember(task.memberId, members) || { 
-    id: "unknown", 
-    avatar: "?", 
-    name: "Unknown", 
-    role: "Unknown" 
-  };
-  
-  const category = getCategory(task.categoryId, categories) || { 
-    id: "unknown", 
-    name: "Unknown", 
-    color: "#ccc", 
-    allowPictures: false, 
-    pictureRequired: false 
-  };
-       return (
-          <div
-            key={task.id}
-            onClick={() => onTaskClick(task)}
-            className="bg-card border border-border rounded-lg p-4 hover:border-accent cursor-pointer transition-colors"
+    <div className="space-y-4">
+      {/* NEW: Filter Controls */}
+      <div className="flex gap-4 bg-card p-3 rounded-lg border border-border">
+        <div className="flex-1">
+          <label className="text-xs font-semibold opacity-60 uppercase tracking-wider mb-1 block">Filter by Month</label>
+          <select 
+            value={selectedMonth} 
+            onChange={e => setSelectedMonth(e.target.value)}
+            className="w-full px-3 py-2 border border-border rounded bg-input text-foreground text-sm cursor-pointer"
           >
-            <div className="flex items-start justify-between gap-4 mb-2">
-              <div className="flex-1">
-                <h3 className="font-semibold text-foreground hover:opacity-75">{task.title}</h3>
-                <div className="text-sm opacity-60 mt-1">{task.description.substring(0, 80)}...</div>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <div className="font-bold text-lg text-accent">{task.points}</div>
-                <div className="text-xs opacity-60">points</div>
-              </div>
-            </div>
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2 flex-wrap">
-                <CategoryPill category={category} />
-              </div>
-              <div className="flex items-center gap-2">
-                <Avatar initials={member.avatar} size="sm" />
-                <div className="text-sm">
-                  <div className="font-semibold">{member.name}</div>
-                  <div className="text-xs opacity-60">{member.role}</div>
+            <option value="All">All Months</option>
+            {uniqueMonths.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+        <div className="flex-1">
+          <label className="text-xs font-semibold opacity-60 uppercase tracking-wider mb-1 block">Done by Member</label>
+          <select 
+            value={selectedMember} 
+            onChange={e => setSelectedMember(e.target.value)}
+            className="w-full px-3 py-2 border border-border rounded bg-input text-foreground text-sm cursor-pointer"
+          >
+            <option value="All">All Members</option>
+            {members.filter(m => m.role == "Member").map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Task List */}
+      <div className="space-y-3">
+        {filteredTasks.length === 0 ? (
+          <div className="text-center p-8 opacity-50 font-semibold border border-dashed border-border rounded-lg">
+            No tasks found for these filters.
+          </div>
+        ) : (
+          filteredTasks.map((task) => {
+            const member = getMember(task.memberId, members) || { id: "unknown", avatar: "?", name: "Unknown", role: "Unknown" };
+            const category = getCategory(task.categoryId, categories) || { id: "unknown", name: "Unknown", color: "#ccc", allowPictures: false, pictureRequired: false };
+            
+            return (
+              <div
+                key={task.id}
+                onClick={() => onTaskClick(task)}
+                className="bg-card border border-border rounded-lg p-4 hover:border-accent cursor-pointer transition-colors"
+              >
+                <div className="flex items-start justify-between gap-4 mb-2">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-foreground hover:opacity-75">{task.title}</h3>
+                    <div className="text-sm opacity-60 mt-1">{task.description.substring(0, 80)}...</div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="font-bold text-lg text-accent">{task.points}</div>
+                    <div className="text-xs opacity-60">points</div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <CategoryPill category={category} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Avatar initials={member.avatar} size="sm" />
+                    <div className="text-sm">
+                      <div className="font-semibold">{member.name}</div>
+                      <div className="text-xs opacity-60">{member.role}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        );
-      })}
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
-
 //     Members View - ENHANCED WITH CREATE/DELETE                               
 
 // Inside the MembersView function (around line 249):
@@ -798,7 +846,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     // STRICT OVERRIDE: Assign directly from the prop, guaranteeing it is never empty
     memberId: currentUserId, 
     categoryId: formData.categoryId,
-    submittedAt: "",
+    submittedAt: new Date().toISOString(),
     points: formData.points,
     description: formData.description,
   };
@@ -979,6 +1027,31 @@ const deleteTask = async (taskId: string) => {
   }
 };
 
+
+const pruneOldTasks = async () => {
+  // Example cutoff: September 1st, 2025 (Keeps Autumn 2025 and Spring 2026)
+  const cutoffDate = "2025-09-01"; 
+  
+  const confirmPrune = window.confirm(`Are you sure you want to permanently delete all tasks from before ${cutoffDate}?`);
+  if (!confirmPrune) return;
+
+  try {
+    const response = await fetch("http://localhost:5000/api/tasks/cleanup", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cutoffDate })
+    });
+    
+    if (response.ok) {
+      // Remove the pruned tasks from the local React state
+      setTasks((prev) => prev.filter(t => t.submittedAt && t.submittedAt >= cutoffDate));
+      alert("Database cleanup successful.");
+    }
+  } catch (error) {
+    console.error("Failed to prune tasks:", error);
+  }
+};
+
   // 5. If no user is logged in, STOP HERE and show the Login Screen
   if (!currentUserId) {
     return <LoginScreen onLogin={(id) => setCurrentUserId(id)} />;
@@ -1055,6 +1128,27 @@ const deleteTask = async (taskId: string) => {
               {view === "members" && "Members"}
               {view === "categories" && "Categories"}
             </h1>
+            <div className="flex items-center gap-3">
+    {/* NEW: Admin-only pruning button */}
+    {view === "tasks" && currentUser?.role === "Admin" && (
+      <button
+        onClick={pruneOldTasks}
+        className="px-4 py-2 border border-red-500 text-red-500 rounded font-semibold hover:bg-red-500 hover:text-white transition-colors"
+      >
+        Prune Old Tasks
+      </button>
+    )}
+
+    {/* EXISTING: New Task Button */}
+    {view === "tasks" && (currentUser?.role === "Committee" || currentUser?.role === "Admin") && (
+      <button
+        onClick={() => setShowAddTaskModal(true)}
+        className="bg-accent text-accent-foreground px-4 py-2 rounded font-semibold flex items-center gap-2"
+      >
+        <Plus size={18} /> New Task
+      </button>
+    )}
+  </div>
             {view === "tasks" && (currentUser?.role === "Member" || currentUser?.role === "Admin") && (
               <button
                 onClick={() => setShowAddTaskModal(true)}
@@ -1069,7 +1163,8 @@ const deleteTask = async (taskId: string) => {
 
           <div className="flex-1 overflow-y-auto px-8 py-6">
             {view === "overview" && <OverviewView tasks={tasks} members={members} categories={categories} onTaskClick={setSelectedTask} />}
-            {view === "tasks" && <TasksView tasks={tasks} members={members} categories={categories} onTaskClick={setSelectedTask} />}            {view === "members" && <MembersView tasks={tasks} members={members} setMembers={setMembers} />}
+            {view === "tasks" && <TasksView tasks={tasks} members={members} categories={categories} onTaskClick={setSelectedTask} />} 
+            {view === "members" && <MembersView tasks={tasks} members={members} setMembers={setMembers} />}
             {view === "categories" && <CategoriesView categories={categories} setCategories={setCategories} tasks={tasks} />}
           </div>
         </div>
@@ -1081,14 +1176,14 @@ const deleteTask = async (taskId: string) => {
     members={members} 
     categories={categories} 
     onClose={() => setSelectedTask(null)} 
-    onDelete={deleteTask} // <-- ADD THIS LINE
+    onDelete={deleteTask} 
   />
 )}
       {showAddTaskModal && currentUserId && (
   <AddTaskModal 
     categories={categories} 
     members={members} 
-    currentUserId={currentUserId} // <-- PASS IT HERE
+    currentUserId={currentUserId}
     onClose={() => setShowAddTaskModal(false)} 
     onAdd={(newTask) => setTasks(prev => [...prev, newTask])} 
   />

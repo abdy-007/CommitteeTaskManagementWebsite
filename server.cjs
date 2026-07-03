@@ -154,7 +154,6 @@ app.post('/api/tasks', async (req, res) => {
       title: insertedTask.title,
       memberId: insertedTask.member_id,
       categoryId: insertedTask.category_id,
-      // type: insertedTask.type, <-- DELETE THIS LINE
       submittedAt: insertedTask.submitted_at,
       points: insertedTask.points,
       description: insertedTask.description,
@@ -245,6 +244,28 @@ app.delete('/api/categories/:id', async (req, res) => {
     const { id } = req.params;
     await db.run('DELETE FROM categories WHERE id = ?', [id]);
     res.json({ message: 'Category deleted successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// DELETE old tasks (Semester Cleanup)
+app.delete('/api/tasks/cleanup', async (req, res) => {
+  try {
+    const { cutoffDate } = req.body; // Expected format: 'YYYY-MM-DD'
+    
+    if (!cutoffDate) {
+      return res.status(400).json({ error: "Missing cutoff date" });
+    }
+
+    // SQLite can directly compare ISO-formatted date strings
+    const result = await db.run('DELETE FROM tasks WHERE submitted_at < ?', [cutoffDate]);
+    
+    res.json({ 
+      message: `Successfully deleted old tasks`, 
+      deletedCount: result.changes // Returns the number of wiped rows
+    });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
