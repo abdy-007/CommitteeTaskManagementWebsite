@@ -253,18 +253,18 @@ app.delete('/api/categories/:id', async (req, res) => {
 // DELETE old tasks (Semester Cleanup)
 app.delete('/api/tasks/cleanup', async (req, res) => {
   try {
-    const { cutoffDate } = req.body; // Expected format: 'YYYY-MM-DD'
+    const { cutoffDate } = req.body; 
     
     if (!cutoffDate) {
       return res.status(400).json({ error: "Missing cutoff date" });
     }
 
-    // SQLite can directly compare ISO-formatted date strings
-    const result = await db.run('DELETE FROM tasks WHERE submitted_at < ?', [cutoffDate]);
+    // Using '<=' and SQLite's date() function to match "before and including"
+    const result = await db.run('DELETE FROM tasks WHERE date(submitted_at) <= date(?)', [cutoffDate]);
     
     res.json({ 
       message: `Successfully deleted old tasks`, 
-      deletedCount: result.changes // Returns the number of wiped rows
+      deletedCount: result.changes
     });
   } catch (err) {
     console.error(err.message);

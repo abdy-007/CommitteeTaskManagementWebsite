@@ -444,30 +444,100 @@ function OverviewView({ tasks, members, categories, onTaskClick }: {
   categories: Category[];
   onTaskClick: (task: Task) => void;
 }) {
+  // 1. Determine current calendar month and year
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
 
+  // 2. Filter tasks strictly for the current month
+  const currentMonthTasks = tasks.filter(t => {
+    if (!t.submittedAt) return false;
+    const d = new Date(t.submittedAt);
+    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+  });
+
+  // 3. Aggregate data to find top performers
+  const memberStats: Record<string, { tasks: number; points: number }> = {};
+  
+  currentMonthTasks.forEach(t => {
+     if (!memberStats[t.memberId]) {
+         memberStats[t.memberId] = { tasks: 0, points: 0 };
+     }
+     memberStats[t.memberId].tasks += 1;
+     memberStats[t.memberId].points += (t.points || 0);
+  });
+
+  let topTaskMemberId: string | null = null;
+  let maxTasks = 0;
+  let topPointsMemberId: string | null = null;
+  let maxPoints = 0;
+
+  Object.entries(memberStats).forEach(([memberId, stats]) => {
+      if (stats.tasks > maxTasks) {
+          maxTasks = stats.tasks;
+          topTaskMemberId = memberId;
+      }
+      if (stats.points > maxPoints) {
+          maxPoints = stats.points;
+          topPointsMemberId = memberId;
+      }
+  });
+
+  // Resolve member names or fallback
+  const topTaskMember = topTaskMemberId ? (members.find(m => m.id === topTaskMemberId)?.name || "Unknown") : "N/A";
+  const topPointsMember = topPointsMemberId ? (members.find(m => m.id === topPointsMemberId)?.name || "Unknown") : "N/A";
+
+  // 4. Mock online users (active session)
+  const onlineUsers = 1; 
 
   return (
     <div className="space-y-6">
+      
+      {/* NEW: Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-card border border-border p-4 rounded-lg text-center shadow-md">
+          <div className="text-sm font-medium opacity-75">Tasks This Month</div>
+          <div className="text-3xl font-bold mt-1">{currentMonthTasks.length}</div>
+          <div className="text-xs opacity-50 mt-1 text-accent">Total Completed</div>
+        </div>
+
+        <div className="bg-accent text-accent-foreground p-4 rounded-lg text-center shadow-md">
+          <div className="text-sm font-medium opacity-90">Most Tasks</div>
+          <div className="text-3xl font-bold mt-1">{maxTasks}</div>
+          <div className="text-xs opacity-75 mt-1">{topTaskMember}</div>
+        </div>
+
+        <div className="bg-card border border-border p-4 rounded-lg text-center shadow-md">
+          <div className="text-sm font-medium opacity-75">Most Points</div>
+          <div className="text-3xl font-bold mt-1">{maxPoints}</div>
+          <div className="text-xs opacity-50 mt-1 text-accent font-semibold">{topPointsMember}</div>
+        </div>
+
+        <div className="bg-accent text-accent-foreground p-4 rounded-lg text-center shadow-md">
+          <div className="text-sm font-medium opacity-90">Online Users</div>
+          <div className="text-3xl font-bold mt-1">{onlineUsers}</div>
+          <div className="text-xs opacity-75 mt-1">Active Now</div>
+        </div>
       </div>
 
       <div className="space-y-3">
         <h2 className="text-lg font-bold">Recent Tasks</h2>
         {tasks.slice(0, 5).map((task) => {
           const member = getMember(task.memberId, members) || { 
-    id: "unknown", 
-    avatar: "?", 
-    name: "Unknown", 
-    role: "Unknown" 
-  };
-  
-  const category = getCategory(task.categoryId, categories) || { 
-    id: "unknown", 
-    name: "Unknown", 
-    color: "#ccc", 
-    allowPictures: false, 
-    pictureRequired: false 
-  };
+            id: "unknown", 
+            avatar: "?", 
+            name: "Unknown", 
+            role: "Unknown" 
+          };
+          
+          const category = getCategory(task.categoryId, categories) || { 
+            id: "unknown", 
+            name: "Unknown", 
+            color: "#ccc", 
+            allowPictures: false, 
+            pictureRequired: false 
+          };
+
           return (
             <div
               key={task.id}
@@ -1028,11 +1098,18 @@ const deleteTask = async (taskId: string) => {
 };
 
 
+
 const pruneOldTasks = async () => {
-  // Example cutoff: September 1st, 2025 (Keeps Autumn 2025 and Spring 2026)
-  const cutoffDate = "2025-09-01"; 
+  // 1. Calculate exactly one year ago from today
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - 1);
   
-  const confirmPrune = window.confirm(`Are you sure you want to permanently delete all tasks from before ${cutoffDate}?`);
+  // 2. Format for SQLite (YYYY-MM-DD) and for the human-readable alert
+  const cutoffDate = cutoff.toISOString().split('T')[0];
+  const displayDate = cutoff.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  // 3. Show the requested alert
+  const confirmPrune = window.confirm(`Are you sure? Everything before and including ${displayDate} will be deleted.`);
   if (!confirmPrune) return;
 
   try {
@@ -1043,15 +1120,14 @@ const pruneOldTasks = async () => {
     });
     
     if (response.ok) {
-      // Remove the pruned tasks from the local React state
-      setTasks((prev) => prev.filter(t => t.submittedAt && t.submittedAt >= cutoffDate));
+      // 4. Update React state by keeping only tasks strictly AFTER the cutoff date
+      setTasks((prev) => prev.filter(t => t.submittedAt && t.submittedAt.split('T')[0] > cutoffDate));
       alert("Database cleanup successful.");
     }
   } catch (error) {
     console.error("Failed to prune tasks:", error);
   }
 };
-
   // 5. If no user is logged in, STOP HERE and show the Login Screen
   if (!currentUserId) {
     return <LoginScreen onLogin={(id) => setCurrentUserId(id)} />;
@@ -1130,22 +1206,12 @@ const pruneOldTasks = async () => {
             </h1>
             <div className="flex items-center gap-3">
     {/* NEW: Admin-only pruning button */}
-    {view === "tasks" && currentUser?.role === "Admin" && (
+    {view === "tasks" && (currentUser?.role === "Committee" || currentUser?.role === "Admin") && (
       <button
         onClick={pruneOldTasks}
         className="px-4 py-2 border border-red-500 text-red-500 rounded font-semibold hover:bg-red-500 hover:text-white transition-colors"
       >
         Prune Old Tasks
-      </button>
-    )}
-
-    {/* EXISTING: New Task Button */}
-    {view === "tasks" && (currentUser?.role === "Committee" || currentUser?.role === "Admin") && (
-      <button
-        onClick={() => setShowAddTaskModal(true)}
-        className="bg-accent text-accent-foreground px-4 py-2 rounded font-semibold flex items-center gap-2"
-      >
-        <Plus size={18} /> New Task
       </button>
     )}
   </div>
