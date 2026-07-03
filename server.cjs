@@ -38,17 +38,16 @@ app.get('/api/members', async (req, res) => {
   }
 });
 
-// GET all tasks (Updated to map snake_case DB to camelCase React)
+// GET all tasks
 app.get('/api/tasks', async (req, res) => {
   try {
-    // Changed 'ORDER BY SubmittedAt' to 'ORDER BY submitted_at'
     const tasks = await db.all('SELECT * FROM tasks ORDER BY submitted_at ASC');
     const formattedTasks = tasks.map(t => ({
       id: t.id,
       title: t.title,
       memberId: t.member_id,
       categoryId: t.category_id,
-      type: t.type,
+      // type: t.type, <-- DELETE THIS LINE
       submittedAt: t.submitted_at,
       points: t.points,
       description: t.description,
@@ -141,21 +140,21 @@ app.put('/api/categories/:id', async (req, res) => {
 // ADD a new task
 app.post('/api/tasks', async (req, res) => {
   try {
-    const { id, title, memberId, categoryId, type, submittedAt, points, description, pictureUrl } = req.body;
+    // Remove 'type' from destructuring
+    const { id, title, memberId, categoryId, submittedAt, points, description, pictureUrl } = req.body;
     
-    // Change 'newTask' to 'insertedTask' to clarify it's the raw DB response
+    // Remove 'type' from the SQL string (now 8 columns and 8 placeholders)
     const insertedTask = await db.get(
-      'INSERT INTO tasks (id, title, member_id, category_id, type, submitted_at, points, description, picture_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *',
-      [id, title, memberId, categoryId, type, submittedAt || null, points, description, pictureUrl || null]
+      'INSERT INTO tasks (id, title, member_id, category_id, submitted_at, points, description, picture_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *',
+      [id, title, memberId, categoryId, submittedAt || null, points, description, pictureUrl || null]
     );
     
-    // Map the snake_case SQLite columns to camelCase for the React frontend
     res.json({
       id: insertedTask.id,
       title: insertedTask.title,
       memberId: insertedTask.member_id,
       categoryId: insertedTask.category_id,
-      type: insertedTask.type,
+      // type: insertedTask.type, <-- DELETE THIS LINE
       submittedAt: insertedTask.submitted_at,
       points: insertedTask.points,
       description: insertedTask.description,

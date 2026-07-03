@@ -24,9 +24,6 @@ import {
   LogOut
 } from "lucide-react";
 
-//     Types                                     
-
-type TaskType = "regular" | "extra";
 
 interface Category {
   id: string;
@@ -48,7 +45,6 @@ interface Task {
   title: string;
   memberId: string;
   categoryId: string;
-  type: TaskType;
   submittedAt: string;
   points: number;
   description: string;
@@ -181,14 +177,6 @@ function LoginScreen({ onLogin }: { onLogin: (userId: string) => void }) {
 }
 
 
-function TypeBadge({ type }: { type: TaskType }) {
-  return (
-    <div className={`px-2 py-1 rounded-full text-xs font-semibold ${type === "extra" ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"}`}>
-      <Tag size={12} className="inline mr-1" />
-      {type.charAt(0).toUpperCase() + type.slice(1)}
-    </div>
-  );
-}
 
 function CategoryPill({ category }: { category: Category | undefined }) {
   if (!category) return null;
@@ -235,7 +223,6 @@ function TaskDetailModal({ task, members, categories, onClose, onDelete }: {
 
         <h2 className="text-2xl font-bold mb-2">{task.title}</h2>
         <div className="flex flex-wrap gap-2 mb-6">
-          <TypeBadge type={task.type} />
           <CategoryPill category={category} />
         </div>
 
@@ -509,7 +496,6 @@ function OverviewView({ tasks, members, categories, onTaskClick }: {
 
 //     Tasks View                                     
 
-// Replace your current TasksView definition (around line 335) with this:
 function TasksView({ tasks, members, categories, onTaskClick }: {
   tasks: Task[];
   members: Member[];
@@ -552,8 +538,6 @@ function TasksView({ tasks, members, categories, onTaskClick }: {
             </div>
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2 flex-wrap">
-                {/* <StatusBadge status={task.status} /> <-- THIS LINE IS REMOVED */}
-                <TypeBadge type={task.type} />
                 <CategoryPill category={category} />
               </div>
               <div className="flex items-center gap-2">
@@ -801,7 +785,6 @@ function AddTaskModal({ categories, members, currentUserId, onClose, onAdd }: {
     title: "",
     memberId: currentUserId,
     categoryId: categories[0]?.id || "",
-    type: "regular" as TaskType,
     points: 10,
     description: "",
   });
@@ -815,7 +798,6 @@ const handleSubmit = async (e: React.FormEvent) => {
     // STRICT OVERRIDE: Assign directly from the prop, guaranteeing it is never empty
     memberId: currentUserId, 
     categoryId: formData.categoryId,
-    type: formData.type,
     submittedAt: "",
     points: formData.points,
     description: formData.description,
@@ -852,7 +834,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="text-sm font-medium">Category</label>
               <select
@@ -865,17 +847,6 @@ const handleSubmit = async (e: React.FormEvent) => {
                     {c.name}
                   </option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">Type</label>
-              <select
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value as TaskType })}
-                className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
-              >
-                <option value="regular">Regular</option>
-                <option value="extra">Extra</option>
               </select>
             </div>
           </div>
