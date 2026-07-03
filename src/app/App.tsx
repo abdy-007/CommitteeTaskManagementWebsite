@@ -210,8 +210,21 @@ function TaskDetailModal({ task, members, categories, onClose, onDelete }: {
   onDelete: (id: string) => void;
 }) {
   if (!task) return null;
-  const member = getMember(task.memberId, members);
-  const category = getCategory(task.categoryId, categories);
+
+  const member = getMember(task.memberId, members) || { 
+    id: "unknown", 
+    avatar: "?", 
+    name: "Unknown", 
+    role: "Unknown" 
+  };
+  
+  const category = getCategory(task.categoryId, categories) || { 
+    id: "unknown", 
+    name: "Unknown", 
+    color: "#ccc", 
+    allowPictures: false, 
+    pictureRequired: false 
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -228,8 +241,7 @@ function TaskDetailModal({ task, members, categories, onClose, onDelete }: {
 
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div>
-            <div className="text-xs opacity-60 uppercase tracking-wider">Assigned to</div>
-            <div className="flex items-center gap-2 mt-1">
+              <div className="text-xs opacity-60 uppercase tracking-wider">Done by</div>            <div className="flex items-center gap-2 mt-1">
               <Avatar initials={member.avatar} />
               <div>
                 <div className="font-semibold">{member.name}</div>
@@ -287,9 +299,24 @@ function CategoriesView({ categories, setCategories, tasks }: {
     );
   };
 
-  const deleteCategory = (id: string) => {
-    setCategories((prev) => prev.filter((c) => c.id !== id));
-  };
+const deleteCategory = async (id: string) => {
+  if (getTaskCount(id) > 0) {
+    alert("Cannot delete a category that is currently assigned to tasks. Please reassign or delete those tasks first.");
+    return;
+  }
+
+  try {
+    const response = await fetch(`http://localhost:5000/api/categories/${id}`, {
+      method: "DELETE"
+    });
+    
+    if (response.ok) {
+      setCategories((prev) => prev.filter((c) => c.id !== id));
+    }
+  } catch (error) {
+    console.error("Failed to delete category:", error);
+  }
+};
 
  const addCategory = async () => {
     const newCategory: Category = {
@@ -431,11 +458,7 @@ function OverviewView({ tasks, members, categories, onTaskClick }: {
   categories: Category[];
   onTaskClick: (task: Task) => void;
 }) {
-/*  const completed = tasks.filter((t) => t.status === "completed").length;
-  const pending = tasks.filter((t) => t.status === "pending").length;
-  const overdue = tasks.filter((t) => t.status === "overdue").length;
-  const totalPoints = tasks.filter((t) => t.status === "completed").reduce((sum, t) => sum + t.points, 0); 
-  */
+
 
   return (
     <div className="space-y-6">
@@ -445,8 +468,20 @@ function OverviewView({ tasks, members, categories, onTaskClick }: {
       <div className="space-y-3">
         <h2 className="text-lg font-bold">Recent Tasks</h2>
         {tasks.slice(0, 5).map((task) => {
-          const member = getMember(task.memberId, members);
-          const category = getCategory(task.categoryId, categories);
+          const member = getMember(task.memberId, members) || { 
+    id: "unknown", 
+    avatar: "?", 
+    name: "Unknown", 
+    role: "Unknown" 
+  };
+  
+  const category = getCategory(task.categoryId, categories) || { 
+    id: "unknown", 
+    name: "Unknown", 
+    color: "#ccc", 
+    allowPictures: false, 
+    pictureRequired: false 
+  };
           return (
             <div
               key={task.id}
@@ -484,10 +519,22 @@ function TasksView({ tasks, members, categories, onTaskClick }: {
   // We removed the 'filtered' variable entirely. Map directly over 'tasks'.
   return (
     <div className="space-y-3">
-      {tasks.map((task) => {
-        const member = getMember(task.memberId, members);
-        const category = getCategory(task.categoryId, categories);
-        return (
+{tasks.map((task) => {
+  const member = getMember(task.memberId, members) || { 
+    id: "unknown", 
+    avatar: "?", 
+    name: "Unknown", 
+    role: "Unknown" 
+  };
+  
+  const category = getCategory(task.categoryId, categories) || { 
+    id: "unknown", 
+    name: "Unknown", 
+    color: "#ccc", 
+    allowPictures: false, 
+    pictureRequired: false 
+  };
+       return (
           <div
             key={task.id}
             onClick={() => onTaskClick(task)}
@@ -740,9 +787,10 @@ const deleteMember = async (memberId: string) => {
 
 //     Add Task Modal                                     
 
-function AddTaskModal({ categories, members, onClose, onAdd }: {
+function AddTaskModal({ categories, members, currentUserId, onClose, onAdd }: {
   categories: Category[];
   members: Member[];
+  currentUserId: string;
   onClose: () => void;
   onAdd: (task: Task) => void;
 }) {
@@ -751,30 +799,27 @@ function AddTaskModal({ categories, members, onClose, onAdd }: {
 
   const [formData, setFormData] = useState({
     title: "",
-    // 2. Default to the first assignable person, not the Admin
-    memberId: assignableMembers.length > 0 ? assignableMembers[0].id : "",
+    memberId: currentUserId,
     categoryId: categories[0]?.id || "",
     type: "regular" as TaskType,
     points: 10,
     description: "",
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Create today's date formatted as YYYY-MM-DD
-    const today = new Date().toISOString().split('T')[0];
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    const newTask: Task = {
-      id: "t" + uid(),
-      title: formData.title,
-      memberId: formData.memberId,
-      categoryId: formData.categoryId,
-      type: formData.type,
-      submittedAt: "",
-      points: formData.points,
-      description: formData.description,
-    };
+  const newTask: Task = {
+    id: "t" + uid(),
+    title: formData.title,
+    // STRICT OVERRIDE: Assign directly from the prop, guaranteeing it is never empty
+    memberId: currentUserId, 
+    categoryId: formData.categoryId,
+    type: formData.type,
+    submittedAt: "",
+    points: formData.points,
+    description: formData.description,
+  };
 
     try {
       const response = await fetch("http://localhost:5000/api/tasks", {
@@ -807,22 +852,6 @@ function AddTaskModal({ categories, members, onClose, onAdd }: {
               className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
             />
           </div>
-
-          <div>
-            <label className="text-sm font-medium">Assigned to</label>
-            <select
-              value={formData.memberId}
-              onChange={(e) => setFormData({ ...formData, memberId: e.target.value })}
-              className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
-            >
-              {assignableMembers.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name} ({m.role})
-                </option>
-              ))}
-            </select>
-          </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium">Category</label>
@@ -851,15 +880,19 @@ function AddTaskModal({ categories, members, onClose, onAdd }: {
             </div>
           </div>
 
-          <div>
-            <label className="text-sm font-medium">Points</label>
-            <input
-              type="number"
-              value={formData.points}
-              onChange={(e) => setFormData({ ...formData, points: parseInt(e.target.value) })}
-              className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
-            />
-          </div>
+<div>
+  <label className="text-sm font-medium">Points</label>
+  <input
+    type="number"
+    value={formData.points}
+    onChange={(e) => {
+      const parsed = parseInt(e.target.value, 10);
+      // Fallback to 0 if parsing fails (prevents NaN/500 errors)
+      setFormData({ ...formData, points: isNaN(parsed) ? 0 : parsed });
+    }}
+    className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
+  />
+</div>
 
           <div>
             <label className="text-sm font-medium">Description</label>
@@ -1080,14 +1113,15 @@ const deleteTask = async (taskId: string) => {
     onDelete={deleteTask} // <-- ADD THIS LINE
   />
 )}
-      {showAddTaskModal && (
-        <AddTaskModal 
-          categories={categories} 
-          members={members} 
-          onClose={() => setShowAddTaskModal(false)} 
-          onAdd={(newTask) => setTasks(prev => [...prev, newTask])} // <-- Add this line
-        />
-      )}
+      {showAddTaskModal && currentUserId && (
+  <AddTaskModal 
+    categories={categories} 
+    members={members} 
+    currentUserId={currentUserId} // <-- PASS IT HERE
+    onClose={() => setShowAddTaskModal(false)} 
+    onAdd={(newTask) => setTasks(prev => [...prev, newTask])} 
+  />
+)}
     </div>
   );
 }

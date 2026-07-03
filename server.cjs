@@ -141,16 +141,26 @@ app.put('/api/categories/:id', async (req, res) => {
 // ADD a new task
 app.post('/api/tasks', async (req, res) => {
   try {
-    // Removed 'status' from destructuring
-    const { id, title, memberId, categoryId, type, submitted_at, points, description, pictureUrl } = req.body;
+    const { id, title, memberId, categoryId, type, submittedAt, points, description, pictureUrl } = req.body;
     
-    const newTask = await db.get(
-      // Removed 'status' column and ensured exactly 9 placeholders (?)
+    // Change 'newTask' to 'insertedTask' to clarify it's the raw DB response
+    const insertedTask = await db.get(
       'INSERT INTO tasks (id, title, member_id, category_id, type, submitted_at, points, description, picture_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *',
-      // Removed 'status' from the values array
       [id, title, memberId, categoryId, type, submittedAt || null, points, description, pictureUrl || null]
     );
-    res.json(newTask);
+    
+    // Map the snake_case SQLite columns to camelCase for the React frontend
+    res.json({
+      id: insertedTask.id,
+      title: insertedTask.title,
+      memberId: insertedTask.member_id,
+      categoryId: insertedTask.category_id,
+      type: insertedTask.type,
+      submittedAt: insertedTask.submitted_at,
+      points: insertedTask.points,
+      description: insertedTask.description,
+      pictureUrl: insertedTask.picture_url
+    });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -224,6 +234,18 @@ app.delete('/api/tasks/:id', async (req, res) => {
     const { id } = req.params;
     await db.run('DELETE FROM tasks WHERE id = ?', [id]);
     res.json({ message: 'Task deleted successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+// DELETE a category
+app.delete('/api/categories/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.run('DELETE FROM categories WHERE id = ?', [id]);
+    res.json({ message: 'Category deleted successfully' });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
