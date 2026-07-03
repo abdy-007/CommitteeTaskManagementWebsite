@@ -189,9 +189,10 @@ function CategoryPill({ category }: { category: Category | undefined }) {
 
 //     Task Detail Modal                                     
 
-function TaskDetailModal({ task, members, categories, onClose, onDelete }: {
+function TaskDetailModal({ task, members, categories, currentUser, onClose, onDelete }: {
   task: Task | null;
   members: Member[];
+  currentUser: Member | null;
   categories: Category[];
   onClose: () => void;
   onDelete: (id: string) => void;
@@ -212,6 +213,12 @@ function TaskDetailModal({ task, members, categories, onClose, onDelete }: {
     allowPictures: false, 
     pictureRequired: false 
   };
+
+  const canDelete = currentUser && (
+    currentUser.role === "Admin" || 
+    currentUser.role === "Committee" || 
+    (currentUser.role === "Member" && task.memberId === currentUser.id)
+  );
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -535,8 +542,7 @@ function OverviewView({ tasks, members, categories, onTaskClick }: {
     <div className="space-y-6">
       
       {/* NEW: Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-card border border-border p-4 rounded-lg text-center shadow-md">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">        <div className="bg-card border border-border p-4 rounded-lg text-center shadow-md">
           <div className="text-sm font-medium opacity-75">Tasks This Month</div>
           <div className="text-3xl font-bold mt-1">{currentMonthTasks.length}</div>
           <div className="text-xs opacity-50 mt-1 text-accent">Total Completed</div>
@@ -1345,6 +1351,7 @@ const pruneOldTasks = async () => {
     task={selectedTask} 
     members={members} 
     categories={categories} 
+    currentUser={currentUser} // <-- ADD THIS MISSING LINK
     onClose={() => setSelectedTask(null)} 
     onDelete={deleteTask} 
   />
