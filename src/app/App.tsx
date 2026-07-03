@@ -1027,7 +1027,7 @@ const deleteTask = async (taskId: string) => {
     ))}
   </nav>
 
-  {/* ADD THIS NEW LOGOUT SECTION */}
+  {/* LOGOUT SECTION */}
   <div className="p-4 border-t border-sidebar-border mt-auto">
     <button
       onClick={() => {
@@ -1051,7 +1051,7 @@ const deleteTask = async (taskId: string) => {
               {view === "members" && "Members"}
               {view === "categories" && "Categories"}
             </h1>
-            {view === "tasks" && (
+            {view === "tasks" && (currentUser?.role === "Member" || currentUser?.role === "Admin") && (
               <button
                 onClick={() => setShowAddTaskModal(true)}
                 className="bg-accent text-accent-foreground px-4 py-2 rounded font-semibold flex items-center gap-2"
