@@ -83,11 +83,17 @@ app.get('/api/categories', async (req, res) => {
 // ADD a new member
 app.post('/api/members', async (req, res) => {
   try {
-    const { id, name, role, avatar } = req.body;
+    const { id, name, role, avatar, username, password } = req.body;
+    
+    // Hash the password securely using bcrypt
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
     const newMember = await db.get(
-      'INSERT INTO members (id, name, role, avatar) VALUES (?, ?, ?, ?) RETURNING *',
-      [id, name, role, avatar]
+      'INSERT INTO members (id, name, role, avatar, username, password) VALUES (?, ?, ?, ?, ?, ?) RETURNING id, name, role, avatar, username',
+      [id, name, role, avatar, username, hashedPassword]
     );
+    
     res.json(newMember);
   } catch (err) {
     console.error(err.message);

@@ -67,6 +67,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
   "Admin": ["overview", "tasks", "members", "categories"],
   "Committee": ["overview", "tasks", "categories"],
   "Member": ["overview", "tasks"],
+  "Observer": ["overview", "tasks"],
 };
 
 //     Helper Functions                                     
@@ -517,6 +518,8 @@ function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: M
   const [showAddModal, setShowAddModal] = useState(false);
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberRole, setNewMemberRole] = useState("");
+  const [newMemberUsername, setNewMemberUsername] = useState("");
+  const [newMemberPassword, setNewMemberPassword] = useState(""); 
 
   const getTaskCount = (memberId: string) => tasks.filter((t) => t.memberId === memberId).length;
   const getCompletedCount = (memberId: string) => tasks.filter((t) => t.memberId === memberId).length;
@@ -601,6 +604,7 @@ function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: M
                   <option value="" disabled>Select a role...</option>
                   <option value="Committee">Committee</option>
                   <option value="Member">Member</option>
+                  <option value="Observer">Observer</option>
                 </select>
               </div>
             </div>
