@@ -25,7 +25,6 @@ import {
 
 //     Types                                     
 
-type TaskStatus = "completed" | "pending" | "overdue";
 type TaskType = "regular" | "extra";
 
 interface Category {
@@ -49,9 +48,7 @@ interface Task {
   memberId: string;
   categoryId: string;
   type: TaskType;
-  status: TaskStatus;
   submittedAt: string;
-  dueDate: string;
   points: number;
   description: string;
   pictureUrl?: string;
@@ -181,20 +178,6 @@ function LoginScreen({ onLogin }: { onLogin: (userId: string) => void }) {
   );
 }
 
-function StatusBadge({ status }: { status: TaskStatus }) {
-  const config = {
-    completed: { bg: "bg-green-100", text: "text-green-800", icon: CheckCircle2 },
-    pending: { bg: "bg-blue-100", text: "text-blue-800", icon: Clock },
-    overdue: { bg: "bg-red-100", text: "text-red-800", icon: AlertCircle },
-  };
-  const { bg, text, icon: Icon } = config[status];
-  return (
-    <div className={`${bg} ${text} px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 w-fit`}>
-      <Icon size={12} />
-      {status.charAt(0).toUpperCase() + status.slice(1)}
-    </div>
-  );
-}
 
 function TypeBadge({ type }: { type: TaskType }) {
   return (
@@ -226,7 +209,6 @@ function TaskDetailModal({ task, members, categories, onClose }: {
   if (!task) return null;
   const member = getMember(task.memberId, members);
   const category = getCategory(task.categoryId, categories);
-  const isCompleted = task.status === "completed";
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -237,7 +219,6 @@ function TaskDetailModal({ task, members, categories, onClose }: {
 
         <h2 className="text-2xl font-bold mb-2">{task.title}</h2>
         <div className="flex flex-wrap gap-2 mb-6">
-          <StatusBadge status={task.status} />
           <TypeBadge type={task.type} />
           <CategoryPill category={category} />
         </div>
@@ -257,16 +238,6 @@ function TaskDetailModal({ task, members, categories, onClose }: {
             <div className="text-xs opacity-60 uppercase tracking-wider">Points</div>
             <div className="text-2xl font-bold text-accent mt-1">{task.points}</div>
           </div>
-          <div>
-            <div className="text-xs opacity-60 uppercase tracking-wider">Due Date</div>
-            <div className="font-semibold mt-1">{task.dueDate}</div>
-          </div>
-          {isCompleted && (
-            <div>
-              <div className="text-xs opacity-60 uppercase tracking-wider">Completed</div>
-              <div className="font-semibold mt-1">{task.submittedAt}</div>
-            </div>
-          )}
         </div>
 
         <div className="border-t border-border pt-4 mb-4">
@@ -447,18 +418,15 @@ function OverviewView({ tasks, members, categories, onTaskClick }: {
   categories: Category[];
   onTaskClick: (task: Task) => void;
 }) {
-  const completed = tasks.filter((t) => t.status === "completed").length;
+/*  const completed = tasks.filter((t) => t.status === "completed").length;
   const pending = tasks.filter((t) => t.status === "pending").length;
   const overdue = tasks.filter((t) => t.status === "overdue").length;
-  const totalPoints = tasks.filter((t) => t.status === "completed").reduce((sum, t) => sum + t.points, 0);
+  const totalPoints = tasks.filter((t) => t.status === "completed").reduce((sum, t) => sum + t.points, 0); 
+  */
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard label="Completed" value={completed} />
-        <StatCard label="Pending" value={pending} />
-        <StatCard label="Overdue" value={overdue} />
-        <StatCard label="Points Earned" value={totalPoints} accent />
       </div>
 
       <div className="space-y-3">
@@ -476,7 +444,6 @@ function OverviewView({ tasks, members, categories, onTaskClick }: {
                 <div className="flex-1">
                   <div className="font-semibold mb-2">{task.title}</div>
                   <div className="flex flex-wrap gap-2">
-                    <StatusBadge status={task.status} />
                     <CategoryPill category={category} />
                   </div>
                 </div>
@@ -494,18 +461,17 @@ function OverviewView({ tasks, members, categories, onTaskClick }: {
 
 //     Tasks View                                     
 
-function TasksView({ tasks, members, categories, filterType, onTaskClick }: {
+// Replace your current TasksView definition (around line 335) with this:
+function TasksView({ tasks, members, categories, onTaskClick }: {
   tasks: Task[];
   members: Member[];
   categories: Category[];
-  filterType: "all" | "completed" | "pending" | "overdue";
   onTaskClick: (task: Task) => void;
 }) {
-  const filtered = filterType === "all" ? tasks : tasks.filter((t) => t.status === filterType);
-
+  // We removed the 'filtered' variable entirely. Map directly over 'tasks'.
   return (
     <div className="space-y-3">
-      {filtered.map((task) => {
+      {tasks.map((task) => {
         const member = getMember(task.memberId, members);
         const category = getCategory(task.categoryId, categories);
         return (
@@ -526,7 +492,7 @@ function TasksView({ tasks, members, categories, filterType, onTaskClick }: {
             </div>
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <StatusBadge status={task.status} />
+                {/* <StatusBadge status={task.status} /> <-- THIS LINE IS REMOVED */}
                 <TypeBadge type={task.type} />
                 <CategoryPill category={category} />
               </div>
@@ -553,9 +519,9 @@ function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: M
   const [newMemberRole, setNewMemberRole] = useState("");
 
   const getTaskCount = (memberId: string) => tasks.filter((t) => t.memberId === memberId).length;
-  const getCompletedCount = (memberId: string) => tasks.filter((t) => t.memberId === memberId && t.status === "completed").length;
+  const getCompletedCount = (memberId: string) => tasks.filter((t) => t.memberId === memberId).length;
   const getTotalPoints = (memberId: string) =>
-    tasks.filter((t) => t.memberId === memberId && t.status === "completed").reduce((sum, t) => sum + t.points, 0);
+    tasks.filter((t) => t.memberId === memberId).reduce((sum, t) => sum + t.points, 0);
 
   const getInitials = (name: string) => {
     const parts = name.split(" ");
@@ -736,9 +702,7 @@ function AddTaskModal({ categories, members, onClose, onAdd }: {
       memberId: formData.memberId,
       categoryId: formData.categoryId,
       type: formData.type,
-      status: "pending",
       submittedAt: "",
-      dueDate: today, // Provide a default due date
       points: formData.points,
       description: formData.description,
     };
@@ -863,7 +827,6 @@ export default function App() {
   
   // 3. Keep the UI states exactly the same
   const [view, setView] = useState<"overview" | "tasks" | "members" | "categories">("overview");
-  const [filterType, setFilterType] = useState<"all" | "completed" | "pending" | "overdue">("all");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
 
@@ -1000,28 +963,11 @@ export default function App() {
             )}
           </div>
 
-          {view === "tasks" && (
-            <div className="border-b border-border px-8 py-3 flex gap-2 bg-card">
-              {["all", "completed", "pending", "overdue"].map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setFilterType(status as typeof filterType)}
-                  className={`px-4 py-1 rounded text-sm font-medium ${
-                    filterType === status
-                      ? "bg-accent text-accent-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  }`}
-                >
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </button>
-              ))}
-            </div>
-          )}
+
 
           <div className="flex-1 overflow-y-auto px-8 py-6">
             {view === "overview" && <OverviewView tasks={tasks} members={members} categories={categories} onTaskClick={setSelectedTask} />}
-            {view === "tasks" && <TasksView tasks={tasks} members={members} categories={categories} filterType={filterType} onTaskClick={setSelectedTask} />}
-            {view === "members" && <MembersView tasks={tasks} members={members} setMembers={setMembers} />}
+{view === "tasks" && <TasksView tasks={tasks} members={members} categories={categories} onTaskClick={setSelectedTask} />}            {view === "members" && <MembersView tasks={tasks} members={members} setMembers={setMembers} />}
             {view === "categories" && <CategoriesView categories={categories} setCategories={setCategories} tasks={tasks} />}
           </div>
         </div>

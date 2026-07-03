@@ -41,16 +41,15 @@ app.get('/api/members', async (req, res) => {
 // GET all tasks (Updated to map snake_case DB to camelCase React)
 app.get('/api/tasks', async (req, res) => {
   try {
-    const tasks = await db.all('SELECT * FROM tasks ORDER BY due_date ASC');
+    // Changed 'ORDER BY SubmittedAt' to 'ORDER BY submitted_at'
+    const tasks = await db.all('SELECT * FROM tasks ORDER BY submitted_at ASC');
     const formattedTasks = tasks.map(t => ({
       id: t.id,
       title: t.title,
       memberId: t.member_id,
       categoryId: t.category_id,
       type: t.type,
-      status: t.status,
       submittedAt: t.submitted_at,
-      dueDate: t.due_date,
       points: t.points,
       description: t.description,
       pictureUrl: t.picture_url
@@ -136,10 +135,14 @@ app.put('/api/categories/:id', async (req, res) => {
 // ADD a new task
 app.post('/api/tasks', async (req, res) => {
   try {
-    const { id, title, memberId, categoryId, type, status, submittedAt, dueDate, points, description, pictureUrl } = req.body;
+    // Removed 'status' from destructuring
+    const { id, title, memberId, categoryId, type, submitted_at, points, description, pictureUrl } = req.body;
+    
     const newTask = await db.get(
-      'INSERT INTO tasks (id, title, member_id, category_id, type, status, submitted_at, due_date, points, description, picture_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *',
-      [id, title, memberId, categoryId, type, status, submittedAt || null, dueDate, points, description, pictureUrl || null]
+      // Removed 'status' column and ensured exactly 9 placeholders (?)
+      'INSERT INTO tasks (id, title, member_id, category_id, type, submitted_at, points, description, picture_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *',
+      // Removed 'status' from the values array
+      [id, title, memberId, categoryId, type, submittedAt || null, points, description, pictureUrl || null]
     );
     res.json(newTask);
   } catch (err) {
