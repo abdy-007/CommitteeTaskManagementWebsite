@@ -32,3 +32,24 @@ This system replaces chaotic group chats with a structured dashboard featuring R
    ```bash
    git clone [https://github.com/abdy-007/CommitteeTaskManagementWebsite.git](https://github.com/abdy-007/CommitteeTaskManagementWebsite.git)
    cd CommitteeTaskManagementWebsite
+   ```
+2. **Install Backend Dependencies**
+
+```bash
+# In the root directory (or your server directory)
+npm install express cors sqlite3 sqlite bcrypt jsonwebtoken multer
+
+```
+3. **Install Frontend Dependencies:**
+
+```bash
+# In your React client directory
+npm install
+Run the Application:
+```
+
+Start the Backend: ```node server.cjs``` (Runs on port 5000)
+
+Start the Frontend: ```npm run dev ```(Runs on port 5173)
+
+*Note: The SQLite database (```main.db```) and the ```/pictures``` directory will be automatically generated upon the first server initialization.*
