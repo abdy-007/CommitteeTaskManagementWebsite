@@ -215,61 +215,88 @@ function TaskDetailModal({ task, members, categories, currentUser, onClose, onDe
     pictureRequired: false 
   };
 
+  // 1. RBAC CHECK: Admin, Committee, or the original Task Creator
   const canDelete = currentUser && (
     currentUser.role === "Admin" || 
     currentUser.role === "Committee" || 
     (currentUser.role === "Member" && task.memberId === currentUser.id)
   );
 
+  // 2. TIMESTAMP FORMATTING
+  const formattedDate = task.submittedAt
+    ? new Date(task.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : "Unknown Date";
+  
+  const formattedTime = task.submittedAt
+    ? new Date(task.submittedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    : "Unknown Time";
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-card text-card-foreground rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 relative">
-        <button onClick={onClose} className="absolute top-4 right-4 p-1 hover:bg-muted rounded">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60]">
+      <div className="bg-card text-card-foreground rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 relative shadow-xl">
+        <button onClick={onClose} className="absolute top-4 right-4 p-1 hover:bg-muted rounded transition-colors">
           <X size={20} />
         </button>
 
-        <h2 className="text-2xl font-bold mb-2">{task.title}</h2>
+        <h2 className="text-2xl font-bold mb-2 pr-8">{task.title}</h2>
         <div className="flex flex-wrap gap-2 mb-6">
           <CategoryPill category={category} />
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        {/* 3. UPDATED GRID: Added Date & Time Column */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           <div>
-              <div className="text-xs opacity-60 uppercase tracking-wider">Done by</div>            <div className="flex items-center gap-2 mt-1">
+            <div className="text-xs opacity-60 uppercase tracking-wider font-semibold">Done by</div>
+            <div className="flex items-center gap-2 mt-2">
               <Avatar initials={member.avatar} />
               <div>
-                <div className="font-semibold">{member.name}</div>
+                <div className="font-semibold text-sm leading-tight">{member.name}</div>
                 <div className="text-xs opacity-60">{member.role}</div>
               </div>
             </div>
           </div>
+
           <div>
-            <div className="text-xs opacity-60 uppercase tracking-wider">Points</div>
+            <div className="text-xs opacity-60 uppercase tracking-wider font-semibold">Submitted On</div>
+            <div className="mt-2 text-sm">
+              <div className="font-semibold">{formattedDate}</div>
+              <div className="text-xs opacity-60 flex items-center gap-1 mt-0.5 text-accent">
+                <Clock size={12} /> {formattedTime}
+              </div>
+            </div>
+          </div>
+
+          <div className="md:text-right">
+            <div className="text-xs opacity-60 uppercase tracking-wider font-semibold">Points</div>
             <div className="text-2xl font-bold text-accent mt-1">{task.points}</div>
           </div>
         </div>
 
         <div className="border-t border-border pt-4 mb-4">
-          <h3 className="font-semibold mb-2">Description</h3>
-          <p className="text-sm opacity-75 leading-relaxed">{task.description}</p>
+          <h3 className="font-semibold mb-2 text-sm uppercase tracking-wider opacity-60">Description</h3>
+          <p className="text-sm opacity-90 leading-relaxed bg-muted/50 p-3 rounded-lg border border-border">
+            {task.description || "No description provided."}
+          </p>
         </div>
 
-{task.pictureUrl && (
-    <div className="border-t border-border pt-4 mb-4">
-      <h3 className="font-semibold mb-2">Submission Photo</h3>
-      <img src={task.pictureUrl} alt="Task submission" className="w-full rounded-lg" />
-    </div>
-  )}
+        {task.pictureUrl && (
+          <div className="border-t border-border pt-4 mb-4">
+            <h3 className="font-semibold mb-3 text-sm uppercase tracking-wider opacity-60">Submission Photo</h3>
+            <img src={task.pictureUrl} alt="Task submission" className="w-full rounded-lg border border-border shadow-sm object-cover max-h-[400px]" />
+          </div>
+        )}
 
-  {/* ADD THIS NEW BLOCK FOR THE DELETE BUTTON */}
-  <div className="flex justify-end border-t border-border pt-4 mt-4">
-    <button 
-      onClick={() => onDelete(task.id)} 
-      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2 font-semibold transition-colors"
-    >
-      <Trash2 size={16} /> Delete Task
-    </button>
-  </div>
+        {/* 4. PROTECTED DELETE BUTTON */}
+        {canDelete && (
+          <div className="flex justify-end border-t border-border pt-4 mt-4">
+            <button 
+              onClick={() => onDelete(task.id)} 
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2 font-semibold transition-colors shadow-sm"
+            >
+              <Trash2 size={16} /> Delete Task
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
