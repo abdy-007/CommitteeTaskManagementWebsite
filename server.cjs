@@ -209,6 +209,37 @@ app.post('/api/tasks', async (req, res) => {
   }
 });
 
+// PUT: Edit an existing task
+app.put('/api/tasks/:id', async (req, res) => {
+  try {
+    const { title, categoryId, points, description, pictureUrl } = req.body;
+    const { id } = req.params;
+    
+    const updatedTask = await db.get(
+      'UPDATE tasks SET title = ?, category_id = ?, points = ?, description = ?, picture_url = ? WHERE id = ? RETURNING *',
+      [title, categoryId, points, description, pictureUrl, id]
+    );
+    
+    if (!updatedTask) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    res.json({
+      id: updatedTask.id,
+      title: updatedTask.title,
+      memberId: updatedTask.member_id,
+      categoryId: updatedTask.category_id,
+      submittedAt: updatedTask.submitted_at,
+      points: updatedTask.points,
+      description: updatedTask.description,
+      pictureUrl: updatedTask.picture_url
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
 // POST: User Login
 app.post('/api/login', async (req, res) => {
   try {

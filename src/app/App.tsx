@@ -22,7 +22,8 @@ import {
   ChevronRight,
   Camera,
   LogOut,
-  Menu
+  Menu,
+  Edit
 } from "lucide-react";
 
 
@@ -190,46 +191,53 @@ function CategoryPill({ category }: { category: Category | undefined }) {
 
 //     Task Detail Modal                                     
 
-function TaskDetailModal({ task, members, categories, currentUser, onClose, onDelete }: {
+function TaskDetailModal({ task, members, categories, currentUser, onClose, onDelete, onEdit }: {
   task: Task | null;
   members: Member[];
   currentUser: Member | null;
   categories: Category[];
   onClose: () => void;
   onDelete: (id: string) => void;
+  onEdit: (task: Task) => void;
 }) {
   if (!task) return null;
 
-  const member = getMember(task.memberId, members) || { 
-    id: "unknown", 
-    avatar: "?", 
-    name: "Unknown", 
-    role: "Unknown" 
-  };
-  
-  const category = getCategory(task.categoryId, categories) || { 
-    id: "unknown", 
-    name: "Unknown", 
-    color: "#ccc", 
-    allowPictures: false, 
-    pictureRequired: false 
-  };
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: task.title,
+    categoryId: task.categoryId,
+    points: task.points,
+    description: task.description,
+  });
 
-  // 1. RBAC CHECK: Admin, Committee, or the original Task Creator
-  const canDelete = currentUser && (
-    currentUser.role === "Admin" || 
-    currentUser.role === "Committee" || 
-    (currentUser.role === "Member" && task.memberId === currentUser.id)
-  );
+  const member = getMember(task.memberId, members) || { id: "unknown", avatar: "?", name: "Unknown", role: "Unknown" };
+  const category = getCategory(task.categoryId, categories) || { id: "unknown", name: "Unknown", color: "#ccc", allowPictures: false, pictureRequired: false };
 
-  // 2. TIMESTAMP FORMATTING
-  const formattedDate = task.submittedAt
-    ? new Date(task.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    : "Unknown Date";
-  
-  const formattedTime = task.submittedAt
-    ? new Date(task.submittedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-    : "Unknown Time";
+  // --- TIME CALCULATION LOGIC ---
+  const submittedTime = new Date(task.submittedAt).getTime();
+  const currentTime = new Date().getTime();
+  const hoursElapsed = (currentTime - submittedTime) / (1000 * 60 * 60);
+
+  // --- RBAC & TIME PERMISSIONS ---
+  const isOwner = currentUser?.role === "Member" && task.memberId === currentUser?.id;
+  const isPrivileged = currentUser?.role === "Admin" || currentUser?.role === "Committee";
+
+  const canEdit = isPrivileged || (isOwner && hoursElapsed <= 24);
+  const canDelete = isPrivileged || (isOwner && hoursElapsed <= 168); // 168 hours = 7 days
+
+  const formattedDate = task.submittedAt ? new Date(task.submittedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : "Unknown";
+  const formattedTime = task.submittedAt ? new Date(task.submittedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : "Unknown";
+
+  const handleSaveEdit = () => {
+    onEdit({
+      ...task,
+      title: editForm.title,
+      categoryId: editForm.categoryId,
+      points: editForm.points,
+      description: editForm.description,
+    });
+    setIsEditing(false);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60]">
@@ -238,12 +246,64 @@ function TaskDetailModal({ task, members, categories, currentUser, onClose, onDe
           <X size={20} />
         </button>
 
-        <h2 className="text-2xl font-bold mb-2 pr-8">{task.title}</h2>
-        <div className="flex flex-wrap gap-2 mb-6">
-          <CategoryPill category={category} />
-        </div>
+        {isEditing ? (
+          <div className="space-y-4 mb-6 pt-4 border-b border-border pb-6">
+            <h2 className="text-xl font-bold">Edit Task</h2>
+            <input 
+              type="text" 
+              value={editForm.title} 
+              onChange={e => setEditForm({...editForm, title: e.target.value})}
+              className="w-full px-3 py-2 border border-border rounded bg-input text-foreground font-bold text-lg"
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold opacity-60 uppercase">Category</label>
+                <select 
+                  value={editForm.categoryId} 
+                  onChange={e => setEditForm({...editForm, categoryId: e.target.value})}
+                  className="w-full px-3 py-2 border border-border rounded bg-input text-foreground mt-1"
+                >
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold opacity-60 uppercase">Points</label>
+                <input 
+                  type="number" 
+                  min="0" /* <-- Add HTML minimum bound */
+                  value={editForm.points} 
+                  onChange={e => {
+                    const val = parseInt(e.target.value) || 0;
+                    // Enforce strict zero minimum in state
+                    setEditForm({...editForm, points: Math.max(0, val)});
+                  }}  
+                className="w-full px-3 py-2 border border-border rounded bg-input text-foreground mt-1"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold opacity-60 uppercase">Description</label>
+              <textarea 
+                value={editForm.description} 
+                onChange={e => setEditForm({...editForm, description: e.target.value})}
+                rows={3}
+                className="w-full px-3 py-2 border border-border rounded bg-input text-foreground mt-1"
+              />
+            </div>
+            <div className="flex gap-2 justify-end pt-2">
+              <button onClick={() => setIsEditing(false)} className="px-4 py-2 border border-border rounded hover:bg-muted">Cancel</button>
+              <button onClick={handleSaveEdit} className="px-4 py-2 bg-accent text-accent-foreground rounded font-bold hover:opacity-90">Save Changes</button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <h2 className="text-2xl font-bold mb-2 pr-8">{task.title}</h2>
+            <div className="flex flex-wrap gap-2 mb-6">
+              <CategoryPill category={category} />
+            </div>
+          </>
+        )}
 
-        {/* 3. UPDATED GRID: Added Date & Time Column */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           <div>
             <div className="text-xs opacity-60 uppercase tracking-wider font-semibold">Done by</div>
@@ -255,48 +315,55 @@ function TaskDetailModal({ task, members, categories, currentUser, onClose, onDe
               </div>
             </div>
           </div>
-
           <div>
             <div className="text-xs opacity-60 uppercase tracking-wider font-semibold">Submitted On</div>
             <div className="mt-2 text-sm">
               <div className="font-semibold">{formattedDate}</div>
               <div className="text-xs opacity-60 flex items-center gap-1 mt-0.5 text-accent">
-                <Clock size={12} /> {formattedTime}
+                {formattedTime}
               </div>
             </div>
           </div>
-
           <div className="md:text-right">
             <div className="text-xs opacity-60 uppercase tracking-wider font-semibold">Points</div>
             <div className="text-2xl font-bold text-accent mt-1">{task.points}</div>
           </div>
         </div>
 
-        <div className="border-t border-border pt-4 mb-4">
-          <h3 className="font-semibold mb-2 text-sm uppercase tracking-wider opacity-60">Description</h3>
-          <p className="text-sm opacity-90 leading-relaxed bg-muted/50 p-3 rounded-lg border border-border">
-            {task.description || "No description provided."}
-          </p>
-        </div>
+        {!isEditing && (
+          <div className="border-t border-border pt-4 mb-4">
+            <h3 className="font-semibold mb-2 text-sm uppercase tracking-wider opacity-60">Description</h3>
+            <p className="text-sm opacity-90 leading-relaxed bg-muted/50 p-3 rounded-lg border border-border">
+              {task.description || "No description provided."}
+            </p>
+          </div>
+        )}
 
-        {task.pictureUrl && (
+        {task.pictureUrl && !isEditing && (
           <div className="border-t border-border pt-4 mb-4">
             <h3 className="font-semibold mb-3 text-sm uppercase tracking-wider opacity-60">Submission Photo</h3>
             <img src={task.pictureUrl} alt="Task submission" className="w-full rounded-lg border border-border shadow-sm object-cover max-h-[400px]" />
           </div>
         )}
 
-        {/* 4. PROTECTED DELETE BUTTON */}
-        {canDelete && (
-          <div className="flex justify-end border-t border-border pt-4 mt-4">
+        <div className="flex justify-end gap-3 border-t border-border pt-4 mt-4">
+          {canEdit && !isEditing && (
+            <button 
+              onClick={() => setIsEditing(true)} 
+              className="px-4 py-2 border border-border text-foreground rounded hover:bg-muted flex items-center gap-2 font-semibold transition-colors shadow-sm"
+            >
+              <Edit size={16} /> Edit Task
+            </button>
+          )}
+          {canDelete && !isEditing && (
             <button 
               onClick={() => onDelete(task.id)} 
               className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 flex items-center gap-2 font-semibold transition-colors shadow-sm"
             >
-              <Trash2 size={16} /> Delete Task
+              <Trash2 size={16} /> Delete
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
@@ -399,25 +466,6 @@ const deleteCategory = async (id: string) => {
     }
   };
 
-  // const updateName = async (id: string, name: string) => {
-  //   try {
-  //     // 1. Send the updated name to the SQLite database
-  //     const response = await fetch(`/api/categories/${id}`, {
-  //       method: "PUT",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({ name })
-  //     });
-
-  //     if (response.ok) {
-  //       // 2. If the database saved it successfully, update the UI!
-  //       setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, name } : c)));
-  //       setEditingId(null);
-  //     }
-  //   } catch (error) {
-  //     console.error("Failed to update category name:", error);
-  //     setEditingId(null); // Close the input box even if it fails
-  //   }
-  // };
 
   return (
     <div className="space-y-4">
@@ -1112,14 +1160,17 @@ function AddTaskModal({ categories, members, currentUserId, onClose, onAdd }: {
           <div>
             <label className="text-sm font-medium">Points</label>
             <input
-              type="number"
-              value={formData.points}
-              onChange={(e) => {
-                const parsed = parseInt(e.target.value, 10);
-                setFormData({ ...formData, points: isNaN(parsed) ? 0 : parsed });
-              }}
-              className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
-            />
+            type="number"
+            min="0" /* <-- Add HTML minimum bound */
+            value={formData.points}
+            onChange={(e) => {
+              const parsed = parseInt(e.target.value, 10);
+              const val = isNaN(parsed) ? 0 : parsed;
+              // Enforce strict zero minimum in state
+              setFormData({ ...formData, points: Math.max(0, val) });
+            }}
+            className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
+            />  
           </div>
 
           <div>
@@ -1244,7 +1295,25 @@ const deleteTask = async (taskId: string) => {
   }
 };
 
-
+const editTask = async (updatedTask: Task) => {
+  try {
+    const response = await fetch(`/api/tasks/${updatedTask.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updatedTask)
+    });
+    
+    if (response.ok) {
+      const returnedTask = await response.json();
+      // Update the main list
+      setTasks((prev) => prev.map((t) => t.id === returnedTask.id ? returnedTask : t));
+      // Update the currently open modal
+      setSelectedTask(returnedTask); 
+    }
+  } catch (error) {
+    console.error("Failed to edit task:", error);
+  }
+};
 
 // 1. Opens the UI Modal and formats the date
   const initiatePrune = () => {
@@ -1432,6 +1501,7 @@ const deleteTask = async (taskId: string) => {
           currentUser={currentUser} 
           onClose={() => setSelectedTask(null)} 
           onDelete={deleteTask} 
+          onEdit={editTask}
         />
       )}
       
