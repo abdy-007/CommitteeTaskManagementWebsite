@@ -21,7 +21,8 @@ import {
   X,
   ChevronRight,
   Camera,
-  LogOut
+  LogOut,
+  Menu
 } from "lucide-react";
 
 
@@ -1127,11 +1128,13 @@ export default function App() {
   const [members, setMembers] = useState<Member[]>([]);
   
   
-  // 3. Keep the UI states exactly the same
+  // 2. Keep the UI states exactly the same
   const [view, setView] = useState<"overview" | "tasks" | "members" | "categories">("overview");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
 
+  // 3. Sidebar toggle state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Start with a null user and loading true
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -1258,86 +1261,114 @@ const pruneOldTasks = async () => {
   }
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="flex h-screen overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col shrink-0">
-  <div className="p-6 border-b border-sidebar-border">
-    <h1 className="text-2xl font-bold text-sidebar-primary">Dormitory</h1>
-    <p className="text-xs opacity-60">Task Management</p>
-  </div>
+      {/* Added 'relative' to the main wrapper to contain the absolute sidebar */}
+      <div className="flex h-screen overflow-hidden relative">
+        
+        {/* Mobile Overlay */}
+        {isSidebarOpen && (
+          <div 
+            className="absolute inset-0 bg-black/60 z-40 lg:hidden" 
+            onClick={() => setIsSidebarOpen(false)} 
+          />
+        )}
 
-  {/* Add flex-1 and overflow-y-auto here so the navigation stretches and scrolls if needed */}
-  <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
-    {[
-      { id: "overview", label: "Overview", icon: LayoutDashboard },
-      { id: "tasks", label: "Tasks", icon: ClipboardList },
-      { id: "members", label: "Members", icon: Users },
-      { id: "categories", label: "Categories", icon: Tag },
-    ]
-    .filter(tab => allowedTabs.includes(tab.id))
-    .map(({ id, label, icon: Icon }) => (
-      <button
-        key={id}
-        onClick={() => setView(id as typeof view)}
-        className={`w-full flex items-center gap-3 px-4 py-2 rounded text-left ${
-          view === id
-            ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
-            : "hover:bg-sidebar-accent text-sidebar-foreground"
-        }`}
-      >
-        <Icon size={18} />
-        {label}
-      </button>
-    ))}
-  </nav>
+        {/* Sidebar - Upgraded to 'lg:' and 'absolute' for foolproof mobile rendering */}
+        <div className={`absolute inset-y-0 left-0 z-50 w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col shrink-0 transition-transform duration-300 lg:relative lg:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+          
+          <div className="p-6 border-b border-sidebar-border flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-sidebar-primary">Dormitory</h1>
+              <p className="text-xs opacity-60">Task Management</p>
+            </div>
+            {/* Close button inside sidebar specifically for mobile users */}
+            <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 -mr-2 rounded hover:bg-sidebar-accent">
+              <X size={20} />
+            </button>
+          </div>
 
-  {/* LOGOUT SECTION */}
-  <div className="p-4 border-t border-sidebar-border mt-auto">
-    <button
-      onClick={() => {
-        localStorage.removeItem("committee_token");
-        window.location.reload();
-      }}
-      className="w-full flex items-center gap-3 px-4 py-2 rounded text-left hover:bg-red-500/10 text-red-500 transition-colors"
-    >
-      <LogOut size={18} />
-      <span className="font-semibold">Logout</span>
-    </button>
-  </div>
+          <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
+            {[
+              { id: "overview", label: "Overview", icon: LayoutDashboard },
+              { id: "tasks", label: "Tasks", icon: ClipboardList },
+              { id: "members", label: "Members", icon: Users },
+              { id: "categories", label: "Categories", icon: Tag },
+            ]
+            .filter(tab => allowedTabs.includes(tab.id))
+            .map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => {
+                  setView(id as typeof view);
+                  setIsSidebarOpen(false); // Auto-close menu on mobile after selection
+                }}
+                className={`w-full flex items-center gap-3 px-4 py-2 rounded text-left ${
+                  view === id
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground font-semibold"
+                    : "hover:bg-sidebar-accent text-sidebar-foreground"
+                }`}
+              >
+                <Icon size={18} />
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="p-4 border-t border-sidebar-border mt-auto">
+            <button
+              onClick={() => {
+                localStorage.removeItem("committee_token");
+                window.location.reload();
+              }}
+              className="w-full flex items-center gap-3 px-4 py-2 rounded text-left hover:bg-red-500/10 text-red-500 transition-colors"
+            >
+              <LogOut size={18} />
+              <span className="font-semibold">Logout</span>
+            </button>
+          </div>
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 overflow-hidden flex flex-col">
-        <div className="bg-card border-b border-border px-4 md:px-8 py-4 flex items-center justify-between">            <h1 className="text-3xl font-bold">
-              {view === "overview" && "Overview"}
-              {view === "tasks" && "Tasks"}
-              {view === "members" && "Members"}
-              {view === "categories" && "Categories"}
-            </h1>
+        <div className="flex-1 overflow-hidden flex flex-col w-full">
+          <div className="bg-card border-b border-border px-4 lg:px-8 py-4 flex items-center justify-between">
+            
             <div className="flex items-center gap-3">
-    {/* NEW: Admin-only pruning button */}
-    {view === "tasks" && (currentUser?.role === "Committee" || currentUser?.role === "Admin") && (
-      <button
-        onClick={pruneOldTasks}
-        className="px-4 py-2 border border-red-500 text-red-500 rounded font-semibold hover:bg-red-500 hover:text-white transition-colors"
-      >
-        Prune Old Tasks
-      </button>
-    )}
-  </div>
-            {view === "tasks" && currentUser?.role === "Member" && (
+              {/* Mobile Hamburger Button - Upgraded to lg:hidden */}
               <button
-                onClick={() => setShowAddTaskModal(true)}
-                className="bg-accent text-accent-foreground px-4 py-2 rounded font-semibold flex items-center gap-2"
+                onClick={() => setIsSidebarOpen(true)}
+                className="lg:hidden p-2 -ml-2 rounded hover:bg-muted text-foreground flex items-center justify-center"
               >
-                <Plus size={18} /> New Task
+                <Menu size={24} />
               </button>
-            )}
+
+              <h1 className="text-2xl sm:text-3xl font-bold">
+                {view === "overview" && "Overview"}
+                {view === "tasks" && "Tasks"}
+                {view === "members" && "Members"}
+                {view === "categories" && "Categories"}
+              </h1>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {view === "tasks" && (currentUser?.role === "Committee" || currentUser?.role === "Admin") && (
+                <button
+                  onClick={pruneOldTasks}
+                  className="px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base border border-red-500 text-red-500 rounded font-semibold hover:bg-red-500 hover:text-white transition-colors"
+                >
+                  Prune Old
+                </button>
+              )}
+              {view === "tasks" && currentUser?.role === "Member" && (
+                <button
+                  onClick={() => setShowAddTaskModal(true)}
+                  className="bg-accent text-accent-foreground px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base rounded font-semibold flex items-center gap-2"
+                >
+                  <Plus size={18} /> <span className="hidden sm:inline">New Task</span>
+                </button>
+              )}
+            </div>
           </div>
 
-
-
-            <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-6">
+          <div className="flex-1 overflow-y-auto px-4 lg:px-8 py-4 md:py-6">
             {view === "overview" && <OverviewView tasks={tasks} members={members} categories={categories} onTaskClick={setSelectedTask} />}
             {view === "tasks" && <TasksView tasks={tasks} members={members} categories={categories} onTaskClick={setSelectedTask} />} 
             {view === "members" && <MembersView tasks={tasks} members={members} setMembers={setMembers} />}
@@ -1347,24 +1378,25 @@ const pruneOldTasks = async () => {
       </div>
 
       {selectedTask && (
-  <TaskDetailModal 
-    task={selectedTask} 
-    members={members} 
-    categories={categories} 
-    currentUser={currentUser} // <-- ADD THIS MISSING LINK
-    onClose={() => setSelectedTask(null)} 
-    onDelete={deleteTask} 
-  />
-)}
+        <TaskDetailModal 
+          task={selectedTask} 
+          members={members} 
+          categories={categories} 
+          currentUser={currentUser} 
+          onClose={() => setSelectedTask(null)} 
+          onDelete={deleteTask} 
+        />
+      )}
+      
       {showAddTaskModal && currentUserId && (
-  <AddTaskModal 
-    categories={categories} 
-    members={members} 
-    currentUserId={currentUserId}
-    onClose={() => setShowAddTaskModal(false)} 
-    onAdd={(newTask) => setTasks(prev => [...prev, newTask])} 
-  />
-)}
+        <AddTaskModal 
+          categories={categories} 
+          members={members} 
+          currentUserId={currentUserId}
+          onClose={() => setShowAddTaskModal(false)} 
+          onAdd={(newTask) => setTasks(prev => [...prev, newTask])} 
+        />
+      )}
     </div>
-  );
-}
+  ); 
+} 
