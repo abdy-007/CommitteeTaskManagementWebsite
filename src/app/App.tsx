@@ -1133,6 +1133,12 @@ export default function App() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
 
+  // NEW: State for Custom Prune Modal
+  const [showPruneModal, setShowPruneModal] = useState(false);
+  const [pruneStatus, setPruneStatus] = useState<"confirm" | "loading" | "success">("confirm");
+  const [pruneCutoffDisplay, setPruneCutoffDisplay] = useState("");
+  const [prunedCount, setPrunedCount] = useState(0);
+
   // 3. Sidebar toggle state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -1213,35 +1219,49 @@ const deleteTask = async (taskId: string) => {
 
 
 
-const pruneOldTasks = async () => {
-  // 1. Calculate exactly one year ago from today
-  const cutoff = new Date();
-  cutoff.setFullYear(cutoff.getFullYear() - 1);
-  
-  // 2. Format for SQLite (YYYY-MM-DD) and for the human-readable alert
-  const cutoffDate = cutoff.toISOString().split('T')[0];
-  const displayDate = cutoff.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+// 1. Opens the UI Modal and formats the date
+  const initiatePrune = () => {
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - 1); // Set to your desired retention window
+    setPruneCutoffDisplay(cutoff.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }));
+    setPruneStatus("confirm");
+    setShowPruneModal(true);
+  };
 
-  // 3. Show the requested alert
-  const confirmPrune = window.confirm(`Are you sure? Everything before and including ${displayDate} will be deleted.`);
-  if (!confirmPrune) return;
-
-  try {
-    const response = await fetch("/api/tasks/cleanup", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cutoffDate })
-    });
+  // 2. Executes the API call inside the Modal
+  const executePrune = async () => {
+    setPruneStatus("loading"); // Trigger loading spinner
     
-    if (response.ok) {
-      // 4. Update React state by keeping only tasks strictly AFTER the cutoff date
-      setTasks((prev) => prev.filter(t => t.submittedAt && t.submittedAt.split('T')[0] > cutoffDate));
-      alert("Database cleanup successful.");
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - 1);
+    const cutoffDate = cutoff.toISOString().split('T')[0];
+
+    try {
+      const response = await fetch("/api/tasks/cleanup", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cutoffDate })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        // Update React state by keeping only tasks strictly AFTER the cutoff date
+        setTasks((prev) => prev.filter(t => t.submittedAt && t.submittedAt.split('T')[0] > cutoffDate));
+        
+        // Switch UI to success screen
+        setPrunedCount(data.deletedCount || 0);
+        setPruneStatus("success");
+      } else {
+        alert("Cleanup failed. Check server console.");
+        setShowPruneModal(false);
+      }
+    } catch (error) {
+      console.error("Failed to prune tasks:", error);
+      setShowPruneModal(false);
     }
-  } catch (error) {
-    console.error("Failed to prune tasks:", error);
-  }
-};
+  };
+
+
   // 5. If no user is logged in, STOP HERE and show the Login Screen
   if (!currentUserId) {
     return <LoginScreen onLogin={(id) => setCurrentUserId(id)} />;
@@ -1349,14 +1369,14 @@ const pruneOldTasks = async () => {
             </div>
 
             <div className="flex items-center gap-3">
-              {view === "tasks" && (currentUser?.role === "Committee" || currentUser?.role === "Admin") && (
-                <button
-                  onClick={pruneOldTasks}
-                  className="px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base border border-red-500 text-red-500 rounded font-semibold hover:bg-red-500 hover:text-white transition-colors"
-                >
-                  Prune Old
-                </button>
-              )}
+{view === "tasks" && (currentUser?.role === "Committee" || currentUser?.role === "Admin") && (
+  <button
+    onClick={initiatePrune}
+    className="px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base border border-red-500 text-red-500 rounded font-semibold hover:bg-red-500 hover:text-white transition-colors"
+  >
+    Prune Old
+  </button>
+)}
               {view === "tasks" && currentUser?.role === "Member" && (
                 <button
                   onClick={() => setShowAddTaskModal(true)}
@@ -1396,6 +1416,63 @@ const pruneOldTasks = async () => {
           onClose={() => setShowAddTaskModal(false)} 
           onAdd={(newTask) => setTasks(prev => [...prev, newTask])} 
         />
+      )}
+      {showPruneModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60]">
+          <div className="bg-card text-card-foreground rounded-lg max-w-sm w-full p-6 shadow-xl text-center relative overflow-hidden">
+            
+            {pruneStatus === "confirm" && (
+              <div className="animate-in fade-in zoom-in duration-200">
+                <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                <h3 className="text-xl font-bold mb-2">Prune Old Tasks?</h3>
+                <p className="text-sm opacity-75 mb-6">
+                  Are you sure? Everything before and including <strong className="text-foreground">{pruneCutoffDisplay}</strong> will be permanently deleted from the database.
+                </p>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowPruneModal(false)} 
+                    className="flex-1 px-4 py-2 border border-border rounded hover:bg-muted font-semibold transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={executePrune} 
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-semibold transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {pruneStatus === "loading" && (
+              <div className="py-8 animate-in fade-in duration-200">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-accent mx-auto mb-4"></div>
+                <h3 className="text-lg font-bold">Cleaning Database</h3>
+                <p className="text-sm opacity-60 mt-1">This might take a moment...</p>
+              </div>
+            )}
+
+            {pruneStatus === "success" && (
+              <div className="animate-in fade-in zoom-in duration-300">
+                <div className="mx-auto w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
+                  <CheckCircle2 className="w-10 h-10 text-green-500" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">Cleanup Complete</h3>
+                <p className="text-sm opacity-75 mb-6">
+                  Successfully deleted <strong className="text-accent text-lg">{prunedCount}</strong> old task(s).
+                </p>
+                <button 
+                  onClick={() => setShowPruneModal(false)} 
+                  className="w-full px-4 py-2 bg-accent text-accent-foreground rounded hover:opacity-90 font-semibold transition-colors shadow-lg"
+                >
+                  Done
+                </button>
+              </div>
+            )}
+
+          </div>
+        </div>
       )}
     </div>
   ); 

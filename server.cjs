@@ -270,6 +270,29 @@ app.delete('/api/members/:id', async (req, res) => {
   }
 });
 
+// DELETE old tasks (Semester Cleanup)
+app.delete('/api/tasks/cleanup', async (req, res) => {
+  try {
+    const { cutoffDate } = req.body; 
+    
+    if (!cutoffDate) {
+      return res.status(400).json({ error: "Missing cutoff date" });
+    }
+
+    // Using '<=' and SQLite's date() function to match "before and including"
+    const result = await db.run('DELETE FROM tasks WHERE date(submitted_at) <= date(?)', [cutoffDate]);
+    
+    res.json({ 
+      message: `Successfully deleted old tasks`, 
+      deletedCount: result.changes
+    });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
+
 // DELETE a task
 app.delete('/api/tasks/:id', async (req, res) => {
   try {
@@ -294,27 +317,6 @@ app.delete('/api/categories/:id', async (req, res) => {
   }
 });
 
-// DELETE old tasks (Semester Cleanup)
-app.delete('/api/tasks/cleanup', async (req, res) => {
-  try {
-    const { cutoffDate } = req.body; 
-    
-    if (!cutoffDate) {
-      return res.status(400).json({ error: "Missing cutoff date" });
-    }
-
-    // Using '<=' and SQLite's date() function to match "before and including"
-    const result = await db.run('DELETE FROM tasks WHERE date(submitted_at) <= date(?)', [cutoffDate]);
-    
-    res.json({ 
-      message: `Successfully deleted old tasks`, 
-      deletedCount: result.changes
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send('Server Error');
-  }
-});
 
 app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
