@@ -206,7 +206,7 @@ function TaskDetailModal({ task, members, categories, currentUser, onClose, onDe
   const [editForm, setEditForm] = useState({
     title: task.title,
     categoryId: task.categoryId,
-    points: task.points,
+    points: task.points.toString(),
     description: task.description,
   });
 
@@ -233,7 +233,7 @@ function TaskDetailModal({ task, members, categories, currentUser, onClose, onDe
       ...task,
       title: editForm.title,
       categoryId: editForm.categoryId,
-      points: editForm.points,
+      points: parseInt(editForm.points) || 0,
       description: editForm.description,
     });
     setIsEditing(false);
@@ -268,17 +268,21 @@ function TaskDetailModal({ task, members, categories, currentUser, onClose, onDe
               </div>
               <div>
                 <label className="text-xs font-semibold opacity-60 uppercase">Points</label>
-                <input 
-                  type="number" 
-                  min="0" /* <-- Add HTML minimum bound */
-                  value={editForm.points} 
-                  onChange={e => {
-                    const val = parseInt(e.target.value) || 0;
-                    // Enforce strict zero minimum in state
-                    setEditForm({...editForm, points: Math.max(0, val)});
-                  }}  
-                className="w-full px-3 py-2 border border-border rounded bg-input text-foreground mt-1"
-                />
+                {/* Replace the edit points input with this: */}
+<input 
+  type="number" 
+  min="0"
+  value={editForm.points} 
+  onChange={e => {
+    const val = e.target.value;
+    if (val === "") {
+      setEditForm({...editForm, points: ""});
+    } else {
+      setEditForm({...editForm, points: Math.max(0, parseInt(val) || 0).toString()});
+    }
+  }}
+  className="w-full px-3 py-2 border border-border rounded bg-input text-foreground mt-1"
+/>
               </div>
             </div>
             <div>
@@ -1024,7 +1028,7 @@ function AddTaskModal({ categories, members, currentUserId, onClose, onAdd }: {
   const [formData, setFormData] = useState({
     title: "",
     categoryId: categories[0]?.id || "",
-    points: 10,
+    points: "1",
     description: "",
   });
 
@@ -1080,7 +1084,7 @@ function AddTaskModal({ categories, members, currentUserId, onClose, onAdd }: {
       memberId: currentUserId,
       categoryId: formData.categoryId,
       submittedAt: new Date().toISOString(),
-      points: formData.points,
+      points: parseInt(formData.points as string) || 0,
       description: formData.description,
       pictureUrl: uploadedPictureUrl || undefined, // Send the URL to the SQLite database
     };
@@ -1159,18 +1163,21 @@ function AddTaskModal({ categories, members, currentUserId, onClose, onAdd }: {
 
           <div>
             <label className="text-sm font-medium">Points</label>
-            <input
-            type="number"
-            min="0" /* <-- Add HTML minimum bound */
-            value={formData.points}
-            onChange={(e) => {
-              const parsed = parseInt(e.target.value, 10);
-              const val = isNaN(parsed) ? 0 : parsed;
-              // Enforce strict zero minimum in state
-              setFormData({ ...formData, points: Math.max(0, val) });
-            }}
-            className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
-            />  
+              <input
+                type="number"
+                min="0"
+                value={formData.points}
+                onChange={(e) => {
+                  const val = e.target.value;
+                    if (val === "") {
+                      setFormData({ ...formData, points: "" as any }); // Allow empty field
+                    } else {
+                      // Parse, clamp, and convert back to string to wipe leading zeros
+                    setFormData({ ...formData, points: Math.max(0, parseInt(val, 10)).toString() });
+                    }
+                }}
+              className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
+              /> 
           </div>
 
           <div>
@@ -1197,7 +1204,14 @@ function AddTaskModal({ categories, members, currentUserId, onClose, onAdd }: {
   );
 }
 
-//     Main App                                     
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+//  __  __       _            _                
+// |  \/  | __ _(_)_ __      / \   _ __  _ __  
+// | |\/| |/ _` | | '_ \    / _ \ | '_ \| '_ \ 
+// | |  | | (_| | | | | |  / ___ \| |_) | |_) |
+// |_|  |_|\__,_|_|_| |_| /_/   \_\ .__/| .__/ 
+//                                |_|   |_|    
+//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 export default function App() {
 // 1. Start with completely empty arrays
@@ -1224,7 +1238,7 @@ export default function App() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+useEffect(() => {
     const token = localStorage.getItem("committee_token");
     
     if (!token) {
@@ -1263,22 +1277,7 @@ export default function App() {
       setLoading(false); // Show login screen
     });
   }, []);
-// 4. FETCH THE DATA
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/members").then(res => res.json()),
-      fetch("/api/tasks").then(res => res.json()),
-      fetch("/api/categories").then(res => res.json())
-    ]).then(([membersData, tasksData, categoriesData]) => {
-      setMembers(membersData);
-      setTasks(tasksData);
-      setCategories(categoriesData);
-      setLoading(false); // Tell React the data is ready!
-    }).catch(err => {
-      console.error("Failed to fetch data:", err);
-      setLoading(false);
-    });
-  }, []);
+
 
 const deleteTask = async (taskId: string) => {
   try {
