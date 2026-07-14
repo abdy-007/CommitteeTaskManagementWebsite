@@ -1,3 +1,4 @@
+const sharp = require('sharp');
 const express = require('express');
 const cors = require('cors');
 const sqlite3 = require('sqlite3'); //database
@@ -59,12 +60,29 @@ const upload = multer({ storage: storage });
 app.use('/pictures', express.static(path.join(__dirname, 'pictures')));
 
 // 4. Create the Upload API Endpoint
-app.post('/api/upload', upload.single('picture'), (req, res) => {
+app.post('/api/upload', upload.single('picture'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
-  // Construct the full URL to the saved image
-  const pictureUrl = `http://localhost:5000/pictures/${req.file.filename}`;
+
+  const inputPath = req.file.path;
+
+  const outputPath = path.join(
+    __dirname,
+    'pictures',
+    `compressed-${Date.now()}.jpg`
+  );
+
+  await sharp(inputPath)
+    .resize({ width: 1200, withoutEnlargement: true })
+    .jpeg({ quality: 75 })
+    .toFile(outputPath);
+
+  fs.unlinkSync(inputPath);
+
+  const pictureUrl =
+    `http://localhost:5000/pictures/${path.basename(outputPath)}`;
+
   res.json({ pictureUrl });
 });
 
