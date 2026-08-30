@@ -37,7 +37,7 @@ This system replaces chaotic group chats with a structured dashboard featuring R
 
 ```bash
 # In the root directory (or your server directory)
-npm install express cors sqlite3 sqlite bcrypt jsonwebtoken multer
+npm install express cors sharp sqlite3 sqlite bcrypt jsonwebtoken multer
 
 ```
 3. **Install Frontend Dependencies:**

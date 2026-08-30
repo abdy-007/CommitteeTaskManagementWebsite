@@ -1365,6 +1365,10 @@ const editTask = async (updatedTask: Task) => {
   // 6. SAFE Role Checking (Wait until data exists)
   const currentUser = members.find(m => m.id === currentUserId) || null;
   const allowedTabs = currentUser ? ROLE_PERMISSIONS[currentUser.role] || [] : [];
+  
+
+  const activeTabs = allowedTabs?.length > 0 ? allowedTabs : ["overview"];
+// Then filter against activeTabs instead of allowedTabs
 
   // 7. Block the UI from rendering until loading is done
   if (loading) {
