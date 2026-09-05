@@ -385,14 +385,6 @@ function CategoriesView({ categories, setCategories, tasks }: {
 
   const getTaskCount = (categoryId: string) => tasks.filter((t) => t.categoryId === categoryId).length;
 
-  // const toggle = (id: string, field: "allowPictures" | "pictureRequired") => {
-  //   setCategories((prev) =>
-  //     prev.map((c) => (c.id === id ? { ...c, [field]: !c[field] } : c))
-  //   );
-  // };
-
-// Inside CategoriesView (around line 220), REPLACE your existing `toggle` and `updateName` functions with this block:
-
   // Centralized function to push any category update to the backend
   const updateCategory = async (updatedCat: Category) => {
     // Optimistic UI update (feels instantaneous to the user)
@@ -737,16 +729,25 @@ function OverviewView({
 
 //     Tasks View                                     
 
-function TasksView({ tasks, members, categories, onTaskClick, selectedMemberFilter, setSelectedMemberFilter }: {
+function TasksView({
+  tasks,
+  members,
+  categories,
+  onTaskClick,
+  selectedMemberFilter,
+  setSelectedMemberFilter,
+  selectedMonthFilter,
+  setSelectedMonthFilter
+}: {
   tasks: Task[];
   members: Member[];
   categories: Category[];
   onTaskClick: (task: Task) => void;
   selectedMemberFilter: string;
   setSelectedMemberFilter: (id: string) => void;
+  selectedMonthFilter: string;
+  setSelectedMonthFilter: (m: string) => void;
 }) {
-  const [selectedMonth, setSelectedMonth] = useState("All");
-
   // Dynamically extract unique "Month Year" combinations from existing tasks
   const uniqueMonths = Array.from(new Set(tasks.map(t => {
     if (!t.submittedAt) return null;
@@ -760,13 +761,13 @@ function TasksView({ tasks, members, categories, onTaskClick, selectedMemberFilt
     const matchMember = !selectedMemberFilter || selectedMemberFilter === "All" || t.memberId === selectedMemberFilter;
     
     let matchMonth = true;
-    if (selectedMonth && selectedMonth !== "All") {
+    if (selectedMonthFilter && selectedMonthFilter !== "All") {
       if (!t.submittedAt) {
         matchMonth = false;
       } else {
         const d = new Date(t.submittedAt);
         const mStr = isNaN(d.getTime()) ? "" : d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-        matchMonth = mStr === selectedMonth;
+        matchMonth = mStr === selectedMonthFilter;
       }
     }
 
@@ -780,8 +781,8 @@ function TasksView({ tasks, members, categories, onTaskClick, selectedMemberFilt
         <div className="flex-1">
           <label className="text-xs font-semibold opacity-60 uppercase tracking-wider mb-1 block">Filter by Month</label>
           <select 
-            value={selectedMonth} 
-            onChange={e => setSelectedMonth(e.target.value)}
+            value={selectedMonthFilter}
+            onChange={e => setSelectedMonthFilter(e.target.value)}
             className="w-full px-3 py-2 border border-border rounded bg-input text-foreground text-sm cursor-pointer"
           >
             <option value="All">All Months</option>
@@ -796,7 +797,7 @@ function TasksView({ tasks, members, categories, onTaskClick, selectedMemberFilt
             className="w-full px-3 py-2 border border-border rounded bg-input text-foreground text-sm cursor-pointer"
           >
             <option value="All">All Members</option>
-            {members.filter(m => m.role == "Member").map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+            {members.filter(m => m.role == "Member" || m.role == "Committee").map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </div>
       </div>
@@ -850,9 +851,10 @@ function TasksView({ tasks, members, categories, onTaskClick, selectedMemberFilt
 }
 //     Members View - ENHANCED WITH CREATE/DELETE                               
 
-// Inside the MembersView function (around line 249):
-function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: Member[]; setMembers: React.Dispatch<React.SetStateAction<Member[]>> }) {
+
+function MembersView({ tasks, members, setMembers, setTasks }: { tasks: Task[]; members: Member[]; setMembers: React.Dispatch<React.SetStateAction<Member[]>>; setTasks: React.Dispatch<React.SetStateAction<Task[]>> }) {
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberRole, setNewMemberRole] = useState("");
   const [newMemberUsername, setNewMemberUsername] = useState("");
@@ -868,7 +870,8 @@ function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: M
     return parts.map((p) => p[0]).join("").toUpperCase();
   };
 
-// Inside the addMember function (around line 259):
+
+
   const addMember = async () => {
     // Require the new fields to be filled
     if (!newMemberName.trim() || !newMemberRole.trim() || !newMemberUsername.trim() || !newMemberPassword.trim()) return;
@@ -913,11 +916,12 @@ function MembersView({ tasks, members, setMembers }: { tasks: Task[]; members: M
 
   
 const deleteMember = async (memberId: string) => {
-  if (getTaskCount(memberId) > 0) {
-    alert("Cannot delete member with assigned tasks. Please reassign tasks first.");
-    return;
-  }
-  
+
+
+
+
+
+
   try {
     const response = await fetch(`/api/members/${memberId}`, {
       method: "DELETE"
@@ -925,6 +929,9 @@ const deleteMember = async (memberId: string) => {
     
     if (response.ok) {
       setMembers((prev) => prev.filter((m) => m.id !== memberId));
+
+      setTasks((prev) => prev.filter((t) => t.memberId !== memberId));
+      setShowDeleteConfirm(null);
     }
   } catch (error) {
     console.error("Failed to delete member:", error);
@@ -1019,7 +1026,37 @@ const deleteMember = async (memberId: string) => {
           </div>
         </div>
       )}
+      {showDeleteConfirm && (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-card rounded-lg p-6 max-w-sm w-full shadow-xl">
+            <h3 className="text-lg font-bold mb-2">Delete Member?</h3>
+                <p className="text-sm opacity-75 mb-6">
 
+              This member has tasks assigned. Are you sure you want to delete them and all their tasks?
+                </p>
+
+            <div className="flex gap-2">
+                  <button
+
+
+                onClick={() => setShowDeleteConfirm(null)}
+                className="flex-1 px-3 py-2 border border-border rounded hover:bg-muted"
+                  >
+                    Cancel
+                  </button>
+                  <button
+
+
+                onClick={() => deleteMember(showDeleteConfirm)}
+                className="flex-1 px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                  >
+
+                Delete All
+                  </button>
+                </div>
+              </div>
+        </div>
+            )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {members.filter(member => member.role !== "Admin").map((member) => (
           <div key={member.id} className="bg-card border border-border rounded-lg p-4">
@@ -1032,24 +1069,30 @@ const deleteMember = async (memberId: string) => {
                 </div>
               </div>
               <button
-                onClick={() => deleteMember(member.id)}
+                onClick={() => {
+                  if (getTaskCount(member.id) > 0) {
+                    setShowDeleteConfirm(member.id);
+                  } else {
+                    deleteMember(member.id);
+                  }
+                }}
                 className="p-1 hover:bg-red-100 hover:text-red-600 rounded transition-colors"
-                title={getTaskCount(member.id) > 0 ? "Cannot delete - member has tasks" : "Delete member"}
-                disabled={getTaskCount(member.id) > 0}
+                title="Delete member"
               >
                 <Trash2 size={16} />
               </button>
-            </div>
+          </div>
 
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="bg-muted rounded p-2">
                 <div className="text-sm font-bold">{getTaskCount(member.id)}</div>
                 <div className="text-xs opacity-60">Tasks</div>
-              </div>
+        </div>
+
               <div className="bg-muted rounded p-2">
                 <div className="text-sm font-bold">{getCompletedCount(member.id)}</div>
                 <div className="text-xs opacity-60">Completed</div>
-              </div>
+    </div>
               <div className="bg-accent text-accent-foreground rounded p-2">
                 <div className="text-sm font-bold">{getTotalPoints(member.id)}</div>
                 <div className="text-xs opacity-60">Points</div>
@@ -1059,10 +1102,10 @@ const deleteMember = async (memberId: string) => {
         ))}
       </div>
     </div>
-  );
-}
+  ); 
+} 
 
-//     Add Task Modal                                     
+//     Add Task Modal
 
 function AddTaskModal({ categories, members, currentUserId, onClose, onAdd }: {
   categories: Category[];
@@ -1109,7 +1152,7 @@ function AddTaskModal({ categories, members, currentUserId, onClose, onAdd }: {
           method: "POST",
           body: uploadData, // Note: DO NOT set "Content-Type" manually when using FormData
         });
-        
+
         if (uploadRes.ok) {
           const result = await uploadRes.json();
           uploadedPictureUrl = result.pictureUrl; // Extract the saved URL
@@ -1171,7 +1214,7 @@ function AddTaskModal({ categories, members, currentUserId, onClose, onAdd }: {
               required
             />
           </div>
-          
+
           <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="text-sm font-medium">Category</label>
@@ -1194,9 +1237,9 @@ function AddTaskModal({ categories, members, currentUserId, onClose, onAdd }: {
           {activeCategory?.allowPictures && (
             <div className="bg-muted p-3 rounded-lg border border-border border-dashed">
               <label className="text-sm font-medium flex items-center gap-2">
-                Task Picture 
-                {activeCategory.pictureRequired ? 
-                  <span className="text-xs text-red-500 font-bold">(Required)</span> : 
+                Task Picture
+                {activeCategory.pictureRequired ?
+                  <span className="text-xs text-red-500 font-bold">(Required)</span> :
                   <span className="text-xs opacity-60">(Optional)</span>
                 }
               </label>
@@ -1225,7 +1268,7 @@ function AddTaskModal({ categories, members, currentUserId, onClose, onAdd }: {
                     }
                 }}
               className="w-full px-3 py-2 border border-border rounded mt-1 bg-input text-foreground"
-              /> 
+              />
           </div>
 
           <div>
@@ -1253,12 +1296,12 @@ function AddTaskModal({ categories, members, currentUserId, onClose, onAdd }: {
 }
 
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-//  __  __       _            _                
-// |  \/  | __ _(_)_ __      / \   _ __  _ __  
-// | |\/| |/ _` | | '_ \    / _ \ | '_ \| '_ \ 
+//  __  __       _            _
+// |  \/  | __ _(_)_ __      / \   _ __  _ __
+// | |\/| |/ _` | | '_ \    / _ \ | '_ \| '_ \
 // | |  | | (_| | | | | |  / ___ \| |_) | |_) |
-// |_|  |_|\__,_|_|_| |_| /_/   \_\ .__/| .__/ 
-//                                |_|   |_|    
+// |_|  |_|\__,_|_|_| |_| /_/   \_\ .__/| .__/
+//                                |_|   |_|
 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 export default function App() {
@@ -1266,8 +1309,8 @@ export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
-  
-  
+
+
   // 2. Keep the UI states exactly the same
   const [view, setView] = useState<"overview" | "tasks" | "members" | "categories">("overview");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -1290,7 +1333,7 @@ export default function App() {
 
 useEffect(() => {
     const token = localStorage.getItem("committee_token");
-    
+
     if (!token) {
       setLoading(false); // No token found, stop loading and show login screen
       return;
@@ -1306,7 +1349,7 @@ useEffect(() => {
     })
     .then(data => {
       setCurrentUserId(data.userId); // Authentication Passed!
-      
+
       // 2. ONLY fetch the sensitive dashboard data if auth was successful
       return Promise.all([
         fetch("/api/members").then(r => r.json()),
@@ -1334,7 +1377,7 @@ const deleteTask = async (taskId: string) => {
     const response = await fetch(`/api/tasks/${taskId}`, {
       method: "DELETE"
     });
-    
+
     if (response.ok) {
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
       setSelectedTask(null); // Close the modal
@@ -1351,13 +1394,13 @@ const editTask = async (updatedTask: Task) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updatedTask)
     });
-    
+
     if (response.ok) {
       const returnedTask = await response.json();
       // Update the main list
       setTasks((prev) => prev.map((t) => t.id === returnedTask.id ? returnedTask : t));
       // Update the currently open modal
-      setSelectedTask(returnedTask); 
+      setSelectedTask(returnedTask);
     }
   } catch (error) {
     console.error("Failed to edit task:", error);
@@ -1376,7 +1419,7 @@ const editTask = async (updatedTask: Task) => {
   // 2. Executes the API call inside the Modal
   const executePrune = async () => {
     setPruneStatus("loading"); // Trigger loading spinner
-    
+
     const cutoff = new Date();
     cutoff.setFullYear(cutoff.getFullYear() - 1);
     const cutoffDate = cutoff.toISOString().split('T')[0];
@@ -1387,12 +1430,12 @@ const editTask = async (updatedTask: Task) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cutoffDate })
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         // Update React state by keeping only tasks strictly AFTER the cutoff date
         setTasks((prev) => prev.filter(t => t.submittedAt && t.submittedAt.split('T')[0] > cutoffDate));
-        
+
         // Switch UI to success screen
         setPrunedCount(data.deletedCount || 0);
         setPruneStatus("success");
@@ -1415,7 +1458,7 @@ const editTask = async (updatedTask: Task) => {
   // 6. SAFE Role Checking (Wait until data exists)
   const currentUser = members.find(m => m.id === currentUserId) || null;
   const allowedTabs = currentUser ? ROLE_PERMISSIONS[currentUser.role] || [] : [];
-  
+
 
   const activeTabs = allowedTabs?.length > 0 ? allowedTabs : ["overview"];
 // Then filter against activeTabs instead of allowedTabs
@@ -1432,18 +1475,18 @@ const editTask = async (updatedTask: Task) => {
     <div className="min-h-screen bg-background text-foreground">
       {/* Added 'relative' to the main wrapper to contain the absolute sidebar */}
       <div className="flex h-screen overflow-hidden relative">
-        
+
         {/* Mobile Overlay */}
         {isSidebarOpen && (
-          <div 
-            className="absolute inset-0 bg-black/60 z-40 lg:hidden" 
-            onClick={() => setIsSidebarOpen(false)} 
+          <div
+            className="absolute inset-0 bg-black/60 z-40 lg:hidden"
+            onClick={() => setIsSidebarOpen(false)}
           />
         )}
 
         {/* Sidebar - Upgraded to 'lg:' and 'absolute' for foolproof mobile rendering */}
         <div className={`absolute inset-y-0 left-0 z-50 w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col shrink-0 transition-transform duration-300 lg:relative lg:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
-          
+
           <div className="p-6 border-b border-sidebar-border flex justify-between items-center">
             <div>
               <h1 className="text-2xl font-bold text-sidebar-primary">Dormitory</h1>
@@ -1499,7 +1542,7 @@ const editTask = async (updatedTask: Task) => {
         {/* Main Content */}
         <div className="flex-1 overflow-hidden flex flex-col w-full">
           <div className="bg-card border-b border-border px-4 lg:px-8 py-4 flex items-center justify-between">
-            
+
             <div className="flex items-center gap-3">
               {/* Mobile Hamburger Button - Upgraded to lg:hidden */}
               <button
@@ -1538,47 +1581,56 @@ const editTask = async (updatedTask: Task) => {
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 lg:px-8 py-4 md:py-6">
-            {view === "overview" && <OverviewView 
-  tasks={tasks} 
-  members={members} 
-  categories={categories} 
-  onTaskClick={setSelectedTask} 
-  setCurrentView={setView} 
-  setSelectedMemberFilter={setSelectedMemberFilter} 
+            {view === "overview" && <OverviewView
+  tasks={tasks}
+  members={members}
+  categories={categories}
+  onTaskClick={setSelectedTask}
+  setCurrentView={setView}
+  setSelectedMemberFilter={setSelectedMemberFilter}
   setSelectedMonthFilter={setSelectedMonthFilter}
 />}
-            {view === "tasks" && <TasksView tasks={tasks} members={members} categories={categories} onTaskClick={setSelectedTask} selectedMemberFilter={selectedMemberFilter} setSelectedMemberFilter={setSelectedMemberFilter} />}
-            {view === "members" && <MembersView tasks={tasks} members={members} setMembers={setMembers} />}
+            {view === "tasks" && <TasksView
+                tasks={tasks}
+          members={members}
+          categories={categories}
+                onTaskClick={setSelectedTask}
+                selectedMemberFilter={selectedMemberFilter}
+                setSelectedMemberFilter={setSelectedMemberFilter}
+                selectedMonthFilter={selectedMonthFilter}
+                setSelectedMonthFilter={setSelectedMonthFilter}
+            />}
+            {view === "members" && <MembersView tasks={tasks} members={members} setMembers={setMembers} setTasks={setTasks} />}
             {view === "categories" && <CategoriesView categories={categories} setCategories={setCategories} tasks={tasks} />}
-          </div>
-        </div>
       </div>
+              </div>
+              </div>
 
       {selectedTask && (
-        <TaskDetailModal 
-          task={selectedTask} 
-          members={members} 
-          categories={categories} 
-          currentUser={currentUser} 
-          onClose={() => setSelectedTask(null)} 
-          onDelete={deleteTask} 
+        <TaskDetailModal
+          task={selectedTask}
+          members={members}
+          categories={categories}
+          currentUser={currentUser}
+          onClose={() => setSelectedTask(null)}
+          onDelete={deleteTask}
           onEdit={editTask}
         />
-      )}
-      
+            )}
+
       {showAddTaskModal && currentUserId && (
-        <AddTaskModal 
-          categories={categories} 
-          members={members} 
+        <AddTaskModal
+          categories={categories}
+          members={members}
           currentUserId={currentUserId}
-          onClose={() => setShowAddTaskModal(false)} 
-          onAdd={(newTask) => setTasks(prev => [...prev, newTask])} 
+          onClose={() => setShowAddTaskModal(false)}
+          onAdd={(newTask) => setTasks(prev => [...prev, newTask])}
         />
       )}
       {showPruneModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[60]">
           <div className="bg-card text-card-foreground rounded-lg max-w-sm w-full p-6 shadow-xl text-center relative overflow-hidden">
-            
+
             {pruneStatus === "confirm" && (
               <div className="animate-in fade-in zoom-in duration-200">
                 <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
@@ -1587,14 +1639,14 @@ const editTask = async (updatedTask: Task) => {
                   Are you sure? Everything before and including <strong className="text-foreground">{pruneCutoffDisplay}</strong> will be permanently deleted from the database.
                 </p>
                 <div className="flex gap-3">
-                  <button 
-                    onClick={() => setShowPruneModal(false)} 
+                  <button
+                    onClick={() => setShowPruneModal(false)}
                     className="flex-1 px-4 py-2 border border-border rounded hover:bg-muted font-semibold transition-colors"
                   >
                     Cancel
                   </button>
-                  <button 
-                    onClick={executePrune} 
+                  <button
+                    onClick={executePrune}
                     className="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-semibold transition-colors"
                   >
                     Delete
@@ -1620,8 +1672,8 @@ const editTask = async (updatedTask: Task) => {
                 <p className="text-sm opacity-75 mb-6">
                   Successfully deleted <strong className="text-accent text-lg">{prunedCount}</strong> old task(s).
                 </p>
-                <button 
-                  onClick={() => setShowPruneModal(false)} 
+                <button
+                  onClick={() => setShowPruneModal(false)}
                   className="w-full px-4 py-2 bg-accent text-accent-foreground rounded hover:opacity-90 font-semibold transition-colors shadow-lg"
                 >
                   Done
@@ -1633,5 +1685,5 @@ const editTask = async (updatedTask: Task) => {
         </div>
       )}
     </div>
-  ); 
-} 
+  );
+}

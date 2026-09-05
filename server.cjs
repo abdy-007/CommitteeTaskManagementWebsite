@@ -161,6 +161,24 @@ app.post('/api/members', async (req, res) => {
   }
 });
 
+// DELETE a member
+app.delete('/api/members/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // 1. Delete tasks first (manually cascading)
+    await db.run('DELETE FROM tasks WHERE member_id = ?', [id]);
+    
+    // 2. Then delete the member
+    await db.run('DELETE FROM members WHERE id = ?', [id]);
+    
+    res.json({ message: 'Member and tasks deleted successfully' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+});
+
 
 // ADD a new category
 app.post('/api/categories', async (req, res) => {
@@ -319,7 +337,7 @@ app.delete('/api/members/:id', async (req, res) => {
   }
 });
 
-// DELETE old tasks (Semester Cleanup)
+
 app.delete('/api/tasks/cleanup', async (req, res) => {
   try {
     const { cutoffDate } = req.body; 
