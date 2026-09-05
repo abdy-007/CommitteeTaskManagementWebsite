@@ -566,11 +566,18 @@ function Toggle({ value, onChange, accentColor }: { value: boolean; onChange: ()
 
 //     Overview View                                     
 
-function OverviewView({ tasks, members, categories, onTaskClick }: {
+// FIX 1: Add setSelectedMonthFilter to the destructured props and interface
+function OverviewView({
+  tasks, members, categories, onTaskClick, 
+  setCurrentView, setSelectedMemberFilter, setSelectedMonthFilter 
+}: {
   tasks: Task[];
   members: Member[];
   categories: Category[];
   onTaskClick: (task: Task) => void;
+  setCurrentView: (view: "overview" | "tasks" | "members" | "categories") => void;  
+  setSelectedMemberFilter: (memberId: string) => void;
+  setSelectedMonthFilter: (month: string) => void; // Added here
 }) {
   // 1. Determine current calendar month and year
   const now = new Date();
@@ -615,54 +622,93 @@ function OverviewView({ tasks, members, categories, onTaskClick }: {
   const topTaskMember = topTaskMemberId ? (members.find(m => m.id === topTaskMemberId)?.name || "Unknown") : "N/A";
   const topPointsMember = topPointsMemberId ? (members.find(m => m.id === topPointsMemberId)?.name || "Unknown") : "N/A";
 
+  // FIX 2: Calculate totalMembers (counting only active participant roles)
+  const totalMembers = members.filter(m => m.role === 'Member' || m.role === 'Committee').length;
+
+  // FIX 3: Declare currentMonthName as executable code, not an HTML comment
+  const currentMonthName = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
   // 4. Mock online users (active session)
   const onlineUsers = 1; 
 
   return (
-    <div className="space-y-6">
-      
-      {/* NEW: Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">        <div className="bg-card border border-border p-4 rounded-lg text-center shadow-md">
+    <><div className="space-y-6">
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        {/* 1. Tasks This Month -> Tasks View (All Members) */}
+        <div
+          onClick={() => {
+            setCurrentView('tasks');
+            setSelectedMemberFilter('All');
+            setSelectedMonthFilter(currentMonthName);
+          } }
+          className="bg-card border border-border p-4 rounded-lg text-center shadow-md cursor-pointer transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg hover:border-accent"
+        >
           <div className="text-sm font-medium opacity-75">Tasks This Month</div>
           <div className="text-3xl font-bold mt-1">{currentMonthTasks.length}</div>
           <div className="text-xs opacity-50 mt-1 text-accent">Total Completed</div>
         </div>
 
-        <div className="bg-accent text-accent-foreground p-4 rounded-lg text-center shadow-md">
+        {/* 2. Most Tasks -> Tasks View (Filtered by Top Task Member) */}
+        <div
+          onClick={() => {
+            if (topTaskMemberId) {
+              setCurrentView('tasks');
+              setSelectedMemberFilter(topTaskMemberId);
+              setSelectedMonthFilter(currentMonthName);
+            }
+          } }
+          className="bg-accent text-accent-foreground p-4 rounded-lg text-center shadow-md cursor-pointer transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg hover:brightness-110"
+        >
           <div className="text-sm font-medium opacity-90">Most Tasks</div>
           <div className="text-3xl font-bold mt-1">{maxTasks}</div>
           <div className="text-xs opacity-75 mt-1">{topTaskMember}</div>
         </div>
 
-        <div className="bg-card border border-border p-4 rounded-lg text-center shadow-md">
+        {/* 3. Most Points -> Tasks View (Filtered by Top Points Member) */}
+        <div
+          onClick={() => {
+            if (topPointsMemberId) {
+              setCurrentView('tasks');
+              setSelectedMemberFilter(topPointsMemberId);
+              setSelectedMonthFilter(currentMonthName);
+            }
+          } }
+          className="bg-card border border-border p-4 rounded-lg text-center shadow-md cursor-pointer transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg hover:border-accent"
+        >
           <div className="text-sm font-medium opacity-75">Most Points</div>
           <div className="text-3xl font-bold mt-1">{maxPoints}</div>
           <div className="text-xs opacity-50 mt-1 text-accent font-semibold">{topPointsMember}</div>
         </div>
 
-        <div className="bg-accent text-accent-foreground p-4 rounded-lg text-center shadow-md">
-          <div className="text-sm font-medium opacity-90">Online Users</div>
-          <div className="text-3xl font-bold mt-1">{onlineUsers}</div>
-          <div className="text-xs opacity-75 mt-1">Active Now</div>
+        {/* 4. Total Members -> Members View */}
+        <div
+          onClick={() => setCurrentView('members')}
+          className="bg-accent text-accent-foreground p-4 rounded-lg text-center shadow-md cursor-pointer transition-all duration-300 ease-in-out transform hover:-translate-y-1 hover:shadow-lg hover:brightness-110"
+        >
+          <div className="text-sm font-medium opacity-90">Total members</div>
+          <div className="text-3xl font-bold mt-1">{totalMembers}</div>
+          <div className="text-xs opacity-75 mt-1">Registered</div>
         </div>
       </div>
-
-      <div className="space-y-3">
+    </div><div className="space-y-3">
         <h2 className="text-lg font-bold">Recent Tasks</h2>
         {tasks.slice(0, 5).map((task) => {
-          const member = getMember(task.memberId, members) || { 
-            id: "unknown", 
-            avatar: "?", 
-            name: "Unknown", 
-            role: "Unknown" 
+          const member = getMember(task.memberId, members) || {
+            id: "unknown",
+            avatar: "?",
+            name: "Unknown",
+            role: "Unknown"
           };
-          
-          const category = getCategory(task.categoryId, categories) || { 
-            id: "unknown", 
-            name: "Unknown", 
-            color: "#ccc", 
-            allowPictures: false, 
-            pictureRequired: false 
+
+          const category = getCategory(task.categoryId, categories) || {
+            id: "unknown",
+            name: "Unknown",
+            color: "#ccc",
+            allowPictures: false,
+            pictureRequired: false
           };
 
           return (
@@ -685,21 +731,21 @@ function OverviewView({ tasks, members, categories, onTaskClick }: {
             </div>
           );
         })}
-      </div>
-    </div>
+      </div></>
   );
 }
 
 //     Tasks View                                     
 
-function TasksView({ tasks, members, categories, onTaskClick }: {
+function TasksView({ tasks, members, categories, onTaskClick, selectedMemberFilter, setSelectedMemberFilter }: {
   tasks: Task[];
   members: Member[];
   categories: Category[];
   onTaskClick: (task: Task) => void;
+  selectedMemberFilter: string;
+  setSelectedMemberFilter: (id: string) => void;
 }) {
   const [selectedMonth, setSelectedMonth] = useState("All");
-  const [selectedMember, setSelectedMember] = useState("All");
 
   // Dynamically extract unique "Month Year" combinations from existing tasks
   const uniqueMonths = Array.from(new Set(tasks.map(t => {
@@ -710,18 +756,20 @@ function TasksView({ tasks, members, categories, onTaskClick }: {
 
   // Apply filters to the task list
   const filteredTasks = tasks.filter(t => {
-    const matchMember = selectedMember === "All" || t.memberId === selectedMember;
-    let matchMonth = true;
+    // FIXED: Now uses selectedMemberFilter from the props
+    const matchMember = !selectedMemberFilter || selectedMemberFilter === "All" || t.memberId === selectedMemberFilter;
     
-    if (selectedMonth !== "All") {
-       if (!t.submittedAt) { 
-         matchMonth = false; 
-       } else {
-         const d = new Date(t.submittedAt);
-         const mStr = isNaN(d.getTime()) ? "" : d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-         matchMonth = mStr === selectedMonth;
-       }
+    let matchMonth = true;
+    if (selectedMonth && selectedMonth !== "All") {
+      if (!t.submittedAt) {
+        matchMonth = false;
+      } else {
+        const d = new Date(t.submittedAt);
+        const mStr = isNaN(d.getTime()) ? "" : d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        matchMonth = mStr === selectedMonth;
+      }
     }
+
     return matchMember && matchMonth;
   });
 
@@ -743,8 +791,8 @@ function TasksView({ tasks, members, categories, onTaskClick }: {
         <div className="flex-1">
           <label className="text-xs font-semibold opacity-60 uppercase tracking-wider mb-1 block">Done by Member</label>
           <select 
-            value={selectedMember} 
-            onChange={e => setSelectedMember(e.target.value)}
+            value={selectedMemberFilter} 
+            onChange={e => setSelectedMemberFilter(e.target.value)}
             className="w-full px-3 py-2 border border-border rounded bg-input text-foreground text-sm cursor-pointer"
           >
             <option value="All">All Members</option>
@@ -1230,6 +1278,8 @@ export default function App() {
   const [pruneStatus, setPruneStatus] = useState<"confirm" | "loading" | "success">("confirm");
   const [pruneCutoffDisplay, setPruneCutoffDisplay] = useState("");
   const [prunedCount, setPrunedCount] = useState(0);
+  const [selectedMemberFilter, setSelectedMemberFilter] = useState<string>("");
+  const [selectedMonthFilter, setSelectedMonthFilter] = useState<string>("All");
 
   // 3. Sidebar toggle state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -1473,7 +1523,7 @@ const editTask = async (updatedTask: Task) => {
     onClick={initiatePrune}
     className="px-3 py-1.5 sm:px-4 sm:py-2 text-sm sm:text-base border border-red-500 text-red-500 rounded font-semibold hover:bg-red-500 hover:text-white transition-colors"
   >
-    Prune Old
+    Clear Old
   </button>
 )}
               {view === "tasks" && currentUser?.role === "Member" && (
@@ -1488,8 +1538,16 @@ const editTask = async (updatedTask: Task) => {
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 lg:px-8 py-4 md:py-6">
-            {view === "overview" && <OverviewView tasks={tasks} members={members} categories={categories} onTaskClick={setSelectedTask} />}
-            {view === "tasks" && <TasksView tasks={tasks} members={members} categories={categories} onTaskClick={setSelectedTask} />} 
+            {view === "overview" && <OverviewView 
+  tasks={tasks} 
+  members={members} 
+  categories={categories} 
+  onTaskClick={setSelectedTask} 
+  setCurrentView={setView} 
+  setSelectedMemberFilter={setSelectedMemberFilter} 
+  setSelectedMonthFilter={setSelectedMonthFilter}
+/>}
+            {view === "tasks" && <TasksView tasks={tasks} members={members} categories={categories} onTaskClick={setSelectedTask} selectedMemberFilter={selectedMemberFilter} setSelectedMemberFilter={setSelectedMemberFilter} />}
             {view === "members" && <MembersView tasks={tasks} members={members} setMembers={setMembers} />}
             {view === "categories" && <CategoriesView categories={categories} setCategories={setCategories} tasks={tasks} />}
           </div>
