@@ -1,0 +1,40 @@
+:root, .dark {
+  --font-size: 15px;
+  --background: #FFFFFF; /* Changed to solid white */
+  --foreground: #899de7; /* Changed to deep blue for readable text */
+  --card: #2A3666;
+  --card-foreground: #B8BCCB;
+  --popover: #2A3666;
+  --popover-foreground: #B8BCCB;
+  --primary: #626A8D;
+  --primary-foreground: #B8BCCB;
+  --secondary: #505980;
+  --secondary-foreground: #B8BCCB;
+  --muted: #2A3666;
+  --muted-foreground: #626A8D;
+  --accent: #eff6ff;
+  --accent-foreground: #232F61;
+  --destructive: #B91C1C;
+  --destructive-foreground: #FFFFFF;
+  --border: #505980;
+  --input: #505980;
+  --input-background: #232F61;
+  --switch-background: #505980;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #626A8D;
+  --chart-1: #626A8D;
+  --chart-2: #505980;
+  --chart-3: #4A7C59;
+  --chart-4: #8B5A2B;
+  --chart-5: #6B4E8A;
+  --radius: 0.25rem;
+  --sidebar: #2A3666;
+  --sidebar-foreground: #B8BCCB;
+  --sidebar-primary: #626A8D;
+  --sidebar-primary-foreground: #B8BCCB;
+  --sidebar-accent: #505980;
+  --sidebar-accent-foreground: #B8BCCB;
+  --sidebar-border: #505980;
+  --sidebar-ring: #626A8D;
+}

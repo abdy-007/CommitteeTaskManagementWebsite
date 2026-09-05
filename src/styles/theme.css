@@ -138,6 +138,7 @@
 
   h1, h2, h3, h4 {
     font-family: 'Barlow Condensed', sans-serif;
+    color: var(--primary-foreground);
     font-weight: 600;
     line-height: 1.2;
     letter-spacing: 0.01em;
@@ -167,4 +168,30 @@
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(24,24,26,0.15); border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: rgba(24,24,26,0.3); }
+}
+
+.bg-card {
+  color: var(--card-foreground);
+}
+.bg-primary {
+  color: var(--primary-foreground);
+}
+.bg-sidebar {
+  color: var(--sidebar-foreground);
+}
+.bg-accent {
+  color: var(--accent-foreground);
+}
+/* Break the camouflage loop on the stat card subtitles */
+.bg-accent .text-accent,
+.bg-card .text-accent {
+  color: #FFFFFF !important;
+}
+/* Globally force headers inside dark UI cards to be white */
+.bg-card h1 {
+  color: var(--accent);
+}
+/* Force explicit foreground text to become light when inside a dark card */
+.bg-card .text-foreground {
+  color: var(--card-foreground) !important;
 }
